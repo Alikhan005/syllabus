@@ -1,6 +1,17 @@
+from pathlib import Path
+
 from django import forms
 from catalog.models import Course
 from .models import Syllabus
+
+
+ALLOWED_SYLLABUS_UPLOAD_EXTENSIONS = {".pdf", ".doc", ".docx"}
+
+
+def is_allowed_syllabus_file_name(filename: str) -> bool:
+    suffix = Path(filename or "").suffix.lower()
+    return suffix in ALLOWED_SYLLABUS_UPLOAD_EXTENSIONS
+
 
 class SyllabusForm(forms.ModelForm):
     """
@@ -52,6 +63,15 @@ class SyllabusForm(forms.ModelForm):
                 self.fields["course"].queryset = user.courses.all()
         
         self.fields["course"].empty_label = "Выберите дисциплину"
+
+
+    def clean_pdf_file(self):
+        uploaded = self.cleaned_data.get("pdf_file")
+        if not uploaded:
+            return uploaded
+        if not is_allowed_syllabus_file_name(uploaded.name):
+            raise forms.ValidationError("Допустимы только файлы PDF и Word (.pdf, .doc, .docx).")
+        return uploaded
 
 
 class SyllabusDetailsForm(forms.ModelForm):

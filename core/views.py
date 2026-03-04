@@ -17,8 +17,18 @@ def _check_db():
 def _env_keys():
     raw = os.getenv("DIAGNOSTICS_ENV_KEYS")
     if raw is None:
-        raw = "SECRET_KEY,DATABASE_URL"
+        raw = "DJANGO_SECRET_KEY,DATABASE_URL"
     return [key.strip() for key in raw.split(",") if key.strip()]
+
+
+def _can_access_diagnostics(user) -> bool:
+    if not getattr(user, "is_authenticated", False):
+        return False
+    return bool(
+        getattr(user, "is_superuser", False)
+        or getattr(user, "is_staff", False)
+        or getattr(user, "role", "") == "admin"
+    )
 
 
 def healthz(request):
@@ -39,6 +49,9 @@ def healthz(request):
 
 
 def diagnostics(request):
+    if not _can_access_diagnostics(request.user):
+        return JsonResponse({"status": "forbidden"}, status=403)
+
     result = {
         "status": "ok",
         "checks": {},

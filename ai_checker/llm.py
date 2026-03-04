@@ -197,6 +197,17 @@ def get_model_name() -> str:
     return Path(model_path).name if model_path else "unknown"
 
 
+def warmup_llm() -> str:
+    """
+    Best-effort warmup to reduce first-request latency.
+    Returns selected model/provider name.
+    """
+    if _use_remote():
+        return get_model_name()
+    get_llm()
+    return get_model_name()
+
+
 def get_llm() -> "Llama":
     if Llama is None:
         raise RuntimeError(

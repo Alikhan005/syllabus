@@ -10,9 +10,10 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&family=Merriweather:wght@600;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
   <script src="https://unpkg.com/htmx.org@2.0.0"></script>
   <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="stylesheet" href="{% static 'css/style.css' %}?v=11">
+  <link rel="stylesheet" href="{% static 'css/style.css' %}?v=13">
 </head>
 <body class="bg-slate-100 text-slate-800 {% block body_class %}{% endblock %}">
   {% if user.is_authenticated and not hide_nav %}
@@ -40,6 +41,7 @@
             <span class="site-nav__toggle-bar"></span>
           </button>
           <div id="site-nav-links" class="hidden sm:flex items-center space-x-4 ml-6 site-nav__links">
+            <a href="{% url 'dashboard' %}" class="nav-link">Главная</a>
             {% if user.can_view_courses %}
               <a href="{% url 'courses_list' %}" class="nav-link">Курсы</a>
             {% endif %}
@@ -172,6 +174,26 @@
         if (window.innerWidth >= 640) {
           setOpen(false);
         }
+      });
+    })();
+
+    (function () {
+      const nav = document.querySelector("[data-site-nav]");
+      if (!nav) return;
+      const links = nav.querySelectorAll(".site-nav__links .nav-link, .site-nav__user .nav-link");
+      const normalize = (path) => {
+        const clean = (path || "").replace(/\/+$/, "");
+        return clean || "/";
+      };
+      const currentPath = normalize(window.location.pathname);
+
+      links.forEach((link) => {
+        try {
+          const linkPath = normalize(new URL(link.href, window.location.origin).pathname);
+          if (linkPath === currentPath) {
+            link.setAttribute("aria-current", "page");
+          }
+        } catch (_) {}
       });
     })();
   </script>

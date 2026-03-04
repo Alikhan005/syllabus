@@ -243,10 +243,10 @@ def _ensure_syllabi(courses, users):
     course_by_code = {course.code: course for course in courses}
     syllabus_seeds = [
         ("DEMO-IS101", "Fall 2025", "2025/2026", users["teacher1"], Syllabus.Status.DRAFT, False),
-        ("DEMO-DS201", "Fall 2025", "2025/2026", users["teacher1"], Syllabus.Status.SUBMITTED_DEAN, False),
-        ("DEMO-SE210", "Fall 2025", "2025/2026", users["teacher2"], Syllabus.Status.APPROVED_DEAN, False),
-        ("DEMO-BA220", "Fall 2025", "2025/2026", users["leader1"], Syllabus.Status.SUBMITTED_UMU, True),
-        ("DEMO-AI301", "Fall 2025", "2025/2026", users["teacher2"], Syllabus.Status.APPROVED_UMU, True),
+        ("DEMO-DS201", "Fall 2025", "2025/2026", users["teacher1"], Syllabus.Status.REVIEW_DEAN, False),
+        ("DEMO-SE210", "Fall 2025", "2025/2026", users["teacher2"], Syllabus.Status.REVIEW_UMU, False),
+        ("DEMO-BA220", "Fall 2025", "2025/2026", users["leader1"], Syllabus.Status.REVIEW_UMU, True),
+        ("DEMO-AI301", "Fall 2025", "2025/2026", users["teacher2"], Syllabus.Status.APPROVED, True),
         ("DEMO-IS101", "Spring 2026", "2025/2026", users["teacher1"], Syllabus.Status.REJECTED, False),
     ]
 
@@ -318,30 +318,23 @@ def _advance_status(syllabus, target_status, users, creator):
     dean = users["dean1"]
     umu = users["umu1"]
 
-    if target_status == Syllabus.Status.SUBMITTED_DEAN:
-        change_status(creator, syllabus, Syllabus.Status.SUBMITTED_DEAN)
+    if target_status == Syllabus.Status.REVIEW_DEAN:
+        change_status(creator, syllabus, Syllabus.Status.REVIEW_DEAN)
         return
 
-    if target_status == Syllabus.Status.APPROVED_DEAN:
-        change_status(creator, syllabus, Syllabus.Status.SUBMITTED_DEAN)
-        change_status(dean, syllabus, Syllabus.Status.APPROVED_DEAN)
+    if target_status == Syllabus.Status.REVIEW_UMU:
+        change_status(creator, syllabus, Syllabus.Status.REVIEW_DEAN)
+        change_status(dean, syllabus, Syllabus.Status.REVIEW_UMU)
         return
 
-    if target_status == Syllabus.Status.SUBMITTED_UMU:
-        change_status(creator, syllabus, Syllabus.Status.SUBMITTED_DEAN)
-        change_status(dean, syllabus, Syllabus.Status.APPROVED_DEAN)
-        change_status(creator, syllabus, Syllabus.Status.SUBMITTED_UMU)
-        return
-
-    if target_status == Syllabus.Status.APPROVED_UMU:
-        change_status(creator, syllabus, Syllabus.Status.SUBMITTED_DEAN)
-        change_status(dean, syllabus, Syllabus.Status.APPROVED_DEAN)
-        change_status(creator, syllabus, Syllabus.Status.SUBMITTED_UMU)
-        change_status(umu, syllabus, Syllabus.Status.APPROVED_UMU)
+    if target_status == Syllabus.Status.APPROVED:
+        change_status(creator, syllabus, Syllabus.Status.REVIEW_DEAN)
+        change_status(dean, syllabus, Syllabus.Status.REVIEW_UMU)
+        change_status(umu, syllabus, Syllabus.Status.APPROVED)
         return
 
     if target_status == Syllabus.Status.REJECTED:
-        change_status(creator, syllabus, Syllabus.Status.SUBMITTED_DEAN)
+        change_status(creator, syllabus, Syllabus.Status.REVIEW_DEAN)
         change_status(
             dean,
             syllabus,

@@ -2,17 +2,20 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied
+from django.db import transaction
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
+from django.views.decorators.http import require_POST
 
 from accounts.decorators import role_required
+from catalog.models import Topic
 from catalog.services import ensure_default_courses
 from workflow.models import SyllabusAuditLog
 from workflow.services import change_status
-from .forms import SyllabusForm
-from .models import Syllabus, SyllabusRevision
+from .forms import SyllabusDetailsForm, SyllabusForm, is_allowed_syllabus_file_name
+from .models import Syllabus, SyllabusRevision, SyllabusTopic
 from .permissions import can_view_syllabus, shared_syllabi_queryset
-from .services import generate_syllabus_pdf
+from .services import generate_syllabus_pdf, validate_syllabus_structure
 
 
 def _can_view_syllabus(user, syllabus: Syllabus) -> bool:
@@ -50,6 +53,19 @@ def _build_literature_lists(topics):
             else:
                 additional_items.append(entry)
     return main_items, additional_items
+
+
+def _parse_positive_int(value):
+    raw = (value or "").strip()
+    if not raw:
+        return None
+    try:
+        parsed = int(raw)
+    except (TypeError, ValueError):
+        return None
+    if parsed <= 0:
+        return None
+    return parsed
 
 
 @login_required
@@ -171,6 +187,40 @@ def shared_syllabi_list(request):
 
 @login_required
 @role_required("teacher", "program_leader")
+def syllabus_create(request):
+    """
+    Backward-compatible create endpoint.
+    Allows creating a draft without a file and supports optional upload.
+    """
+    ensure_default_courses(request.user)
+
+    if request.method == "POST":
+        form = SyllabusForm(request.POST, request.FILES, user=request.user)
+        if form.is_valid():
+            syllabus = form.save(commit=False)
+            syllabus.creator = request.user
+
+            if syllabus.pdf_file:
+                syllabus.status = Syllabus.Status.AI_CHECK
+                success_message = "File uploaded. AI check started."
+            else:
+                syllabus.status = Syllabus.Status.DRAFT
+                success_message = "Syllabus created as draft."
+
+            syllabus.save()
+            messages.success(request, success_message)
+            return redirect("syllabus_detail", pk=syllabus.pk)
+    else:
+        form = SyllabusForm(user=request.user)
+
+    if not form.fields["course"].queryset.exists():
+        messages.warning(request, "You have no available courses. Please contact admin.")
+
+    return render(request, "syllabi/upload_pdf.html", {"form": form})
+
+
+@login_required
+@role_required("teacher", "program_leader")
 def upload_pdf_view(request):
     """
     Сценарий: ИМПОРТ ФАЙЛА.
@@ -243,6 +293,11 @@ def syllabus_detail(request, pk):
     )
     can_upload = (is_creator and not is_frozen and is_teacher_like) or (is_umu and is_frozen)
     can_share = is_creator and is_teacher_like
+    can_edit_constructor = (
+        is_creator
+        and is_teacher_like
+        and syllabus.status in [Syllabus.Status.DRAFT, Syllabus.Status.CORRECTION]
+    )
 
     return render(
         request,
@@ -258,6 +313,7 @@ def syllabus_detail(request, pk):
             "can_reject_umu": can_approve_umu,
             "can_upload": can_upload,
             "can_share": can_share,
+            "can_edit_constructor": can_edit_constructor,
             "is_creator": is_creator,
             "learning_outcomes_list": _split_lines(syllabus.learning_outcomes),
             "teaching_methods_list": _split_lines(syllabus.teaching_methods),
@@ -270,15 +326,142 @@ def syllabus_detail(request, pk):
 @login_required
 @role_required("teacher", "program_leader")
 def syllabus_edit_topics(request, pk):
-    messages.info(request, "Ручное редактирование тем отключено. Пожалуйста, внесите изменения в файл и загрузите его заново.")
-    return redirect("syllabus_detail", pk=pk)
+    syllabus = get_object_or_404(Syllabus.objects.select_related("course", "creator"), pk=pk)
+    if request.user != syllabus.creator:
+        raise PermissionDenied("Недостаточно прав для редактирования тем.")
+    if syllabus.status not in [Syllabus.Status.DRAFT, Syllabus.Status.CORRECTION]:
+        messages.warning(request, "Редактирование тем доступно только для черновика и доработки.")
+        return redirect("syllabus_detail", pk=pk)
+
+    course_topics = list(
+        Topic.objects.filter(course=syllabus.course, is_active=True).order_by("order_index", "id")
+    )
+    existing_topics = {
+        st.topic_id: st
+        for st in syllabus.syllabus_topics.select_related("topic").filter(topic__is_active=True)
+    }
+
+    if request.method == "POST":
+        included_topic_ids = []
+        explicit_weeks = {}
+        payload_by_topic_id = {}
+
+        for topic in course_topics:
+            topic_id = topic.id
+            if f"include_{topic_id}" not in request.POST:
+                continue
+
+            included_topic_ids.append(topic_id)
+            explicit_weeks[topic_id] = _parse_positive_int(request.POST.get(f"week_{topic_id}"))
+            payload_by_topic_id[topic_id] = {
+                "week_label": (request.POST.get(f"week_label_{topic_id}") or "").strip(),
+                "custom_title": (request.POST.get(f"title_{topic_id}") or "").strip(),
+                "custom_hours": _parse_positive_int(request.POST.get(f"hours_{topic_id}")),
+                "tasks": (request.POST.get(f"tasks_{topic_id}") or "").strip(),
+                "learning_outcomes": (request.POST.get(f"outcomes_{topic_id}") or "").strip(),
+                "literature_notes": (request.POST.get(f"literature_{topic_id}") or "").strip(),
+                "assessment": (request.POST.get(f"assessment_{topic_id}") or "").strip(),
+            }
+
+        used_weeks = {week for week in explicit_weeks.values() if week is not None}
+        next_week = 1
+
+        with transaction.atomic():
+            syllabus.syllabus_topics.exclude(topic_id__in=included_topic_ids).delete()
+
+            for topic_id in included_topic_ids:
+                week_number = explicit_weeks.get(topic_id)
+                if week_number is None:
+                    while next_week in used_weeks:
+                        next_week += 1
+                    week_number = next_week
+                    used_weeks.add(week_number)
+                    next_week += 1
+
+                syllabus_topic = existing_topics.get(topic_id)
+                if syllabus_topic is None:
+                    syllabus_topic = SyllabusTopic(syllabus=syllabus, topic_id=topic_id)
+
+                payload = payload_by_topic_id[topic_id]
+                syllabus_topic.week_number = week_number
+                syllabus_topic.is_included = True
+                syllabus_topic.week_label = payload["week_label"]
+                syllabus_topic.custom_title = payload["custom_title"]
+                syllabus_topic.custom_hours = payload["custom_hours"]
+                syllabus_topic.tasks = payload["tasks"]
+                syllabus_topic.learning_outcomes = payload["learning_outcomes"]
+                syllabus_topic.literature_notes = payload["literature_notes"]
+                syllabus_topic.assessment = payload["assessment"]
+                syllabus_topic.save()
+
+        SyllabusRevision.objects.create(
+            syllabus=syllabus,
+            changed_by=request.user,
+            version_number=syllabus.version_number,
+            note="Обновлена структура тем",
+        )
+        messages.success(request, "Темы силлабуса сохранены.")
+        return redirect("syllabus_edit_details", pk=pk)
+
+    topic_rows = []
+    for topic in course_topics:
+        existing = existing_topics.get(topic.id)
+        topic_rows.append(
+            {
+                "topic": topic,
+                "included": bool(existing and existing.is_included),
+                "week_number": existing.week_number if existing else None,
+                "week_label": existing.week_label if existing else "",
+                "display_title": topic.get_title(syllabus.main_language),
+                "custom_hours": existing.custom_hours if existing else None,
+                "custom_title": existing.custom_title if existing else "",
+                "tasks": existing.tasks if existing else "",
+                "learning_outcomes": existing.learning_outcomes if existing else "",
+                "literature_notes": existing.literature_notes if existing else "",
+                "assessment": existing.assessment if existing else "",
+            }
+        )
+
+    if not topic_rows:
+        messages.info(request, "В банке тем пока нет активных тем для этой дисциплины.")
+
+    return render(
+        request,
+        "syllabi/syllabus_edit_topics.html",
+        {"syllabus": syllabus, "topics": topic_rows},
+    )
 
 
 @login_required
 @role_required("teacher", "program_leader")
 def syllabus_edit_details(request, pk):
-    messages.info(request, "Ручное редактирование полей отключено. Пожалуйста, внесите изменения в файл и загрузите его заново.")
-    return redirect("syllabus_detail", pk=pk)
+    syllabus = get_object_or_404(Syllabus.objects.select_related("course", "creator"), pk=pk)
+    if request.user != syllabus.creator:
+        raise PermissionDenied("Недостаточно прав для редактирования деталей.")
+    if syllabus.status not in [Syllabus.Status.DRAFT, Syllabus.Status.CORRECTION]:
+        messages.warning(request, "Редактирование деталей доступно только для черновика и доработки.")
+        return redirect("syllabus_detail", pk=pk)
+
+    if request.method == "POST":
+        form = SyllabusDetailsForm(request.POST, instance=syllabus)
+        if form.is_valid():
+            form.save()
+            SyllabusRevision.objects.create(
+                syllabus=syllabus,
+                changed_by=request.user,
+                version_number=syllabus.version_number,
+                note="Обновлены детали силлабуса",
+            )
+            messages.success(request, "Детали силлабуса сохранены.")
+            return redirect("syllabus_detail", pk=pk)
+    else:
+        form = SyllabusDetailsForm(instance=syllabus)
+
+    return render(
+        request,
+        "syllabi/syllabus_edit_details.html",
+        {"syllabus": syllabus, "form": form},
+    )
 
 
 @login_required
@@ -292,6 +475,7 @@ def syllabus_pdf(request, pk):
 
 
 @login_required
+@require_POST
 def send_to_ai_check(request, pk):
     syllabus = get_object_or_404(Syllabus, pk=pk)
     if request.user != syllabus.creator:
@@ -301,6 +485,12 @@ def send_to_ai_check(request, pk):
     if syllabus.status not in [Syllabus.Status.DRAFT, Syllabus.Status.CORRECTION]:
         messages.warning(request, "Силлабус уже на проверке или утвержден.")
         return redirect('syllabus_detail', pk=pk)
+
+    validation_errors = validate_syllabus_structure(syllabus)
+    if validation_errors:
+        for error in validation_errors:
+            messages.error(request, error)
+        return redirect("syllabus_detail", pk=pk)
 
     syllabus.status = Syllabus.Status.AI_CHECK
     syllabus.save(update_fields=['status'])
@@ -341,6 +531,10 @@ def syllabus_upload_file(request, pk):
 
     uploaded = request.FILES.get("attachment")
     if uploaded:
+        if not is_allowed_syllabus_file_name(uploaded.name):
+            messages.error(request, "Неверный тип файла. Загрузите PDF или Word (.pdf, .doc, .docx).")
+            return redirect("syllabus_detail", pk=pk)
+
         syllabus.pdf_file.save(uploaded.name, uploaded, save=False)
         syllabus.version_number += 1
         

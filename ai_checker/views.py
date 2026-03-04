@@ -1,3 +1,4 @@
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.shortcuts import get_object_or_404, redirect, render
@@ -7,7 +8,6 @@ from syllabi.models import Syllabus
 from syllabi.permissions import can_view_syllabus
 from .assistant import answer_syllabus_question
 from .models import AiCheckResult
-from .services import run_ai_check
 
 
 def _can_view(user, syllabus: Syllabus) -> bool:
@@ -20,8 +20,14 @@ def run_check(request, syllabus_pk):
     if not _can_view(request.user, syllabus):
         raise PermissionDenied("Нет доступа к этому силлабусу.")
     if request.method == "POST":
-        check = run_ai_check(syllabus)
-        return redirect("ai_check_detail", pk=check.pk)
+        if syllabus.status != Syllabus.Status.AI_CHECK:
+            syllabus.status = Syllabus.Status.AI_CHECK
+            syllabus.ai_feedback = ""
+            syllabus.save(update_fields=["status", "ai_feedback"])
+            messages.success(request, "Проверка ИИ запущена в фоне. Обновите страницу через несколько секунд.")
+        else:
+            messages.info(request, "Проверка ИИ уже выполняется.")
+        return redirect("syllabus_detail", pk=syllabus.pk)
     return redirect("syllabus_detail", pk=syllabus.pk)
 
 

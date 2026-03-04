@@ -20,6 +20,23 @@ class Syllabus(models.Model):
         APPROVED = "approved", "Утвержден"
         REJECTED = "rejected", "Отклонено (Архив)"
 
+    # Compatibility aliases for older status names still used in tests/templates/scripts.
+    Status.SUBMITTED_DEAN = Status.REVIEW_DEAN
+    Status.APPROVED_DEAN = Status.REVIEW_UMU
+    Status.SUBMITTED_UMU = Status.REVIEW_UMU
+    Status.APPROVED_UMU = Status.APPROVED
+
+    LEGACY_STATUS_MAP = {
+        "submitted_dean": Status.REVIEW_DEAN,
+        "approved_dean": Status.REVIEW_UMU,
+        "submitted_umu": Status.REVIEW_UMU,
+        "approved_umu": Status.APPROVED,
+    }
+
+    @classmethod
+    def normalize_status(cls, value: str) -> str:
+        return cls.LEGACY_STATUS_MAP.get(value, value)
+
     course = models.ForeignKey(
         Course, 
         on_delete=models.CASCADE, 

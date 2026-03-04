@@ -14,7 +14,8 @@ AI_MODELS_DIR = os.path.join(BASE_DIR, 'ai_models')
 if load_dotenv:
     for env_path in (BASE_DIR / ".env", BASE_DIR.parent / ".env"):
         if env_path.exists():
-            load_dotenv(env_path, override=True)
+            # Keep externally provided env vars (CI/prod secrets) higher priority.
+            load_dotenv(env_path, override=False)
             break
 
 
@@ -82,9 +83,13 @@ SECRET_KEY = os.getenv(
 
 DEBUG = _env_bool("DJANGO_DEBUG", True)
 
-ALLOWED_HOSTS = ["*"]
+ALLOWED_HOSTS = (
+    _env_list("DJANGO_ALLOWED_HOSTS")
+    or _env_list("ALLOWED_HOSTS")
+    or ["127.0.0.1", "localhost"]
+)
 
-CSRF_TRUSTED_ORIGINS = _env_list("DJANGO_CSRF_TRUSTED_ORIGINS")
+CSRF_TRUSTED_ORIGINS = _env_list("DJANGO_CSRF_TRUSTED_ORIGINS") or _env_list("CSRF_TRUSTED_ORIGINS")
 
 
 # Приложения
@@ -259,4 +264,12 @@ EMAIL_TIMEOUT = _env_int("EMAIL_TIMEOUT", 15)
 
 EMAIL_VERIFICATION_TTL_MINUTES = _env_int("EMAIL_VERIFICATION_TTL_MINUTES", 15)
 EMAIL_VERIFICATION_RESEND_SECONDS = _env_int("EMAIL_VERIFICATION_RESEND_SECONDS", 60)
-X_FRAME_OPTIONS = 'SAMEORIGIN'
+
+# Security defaults: permissive in local debug, strict in production.
+SECURE_SSL_REDIRECT = _env_bool("DJANGO_SECURE_SSL_REDIRECT", not DEBUG)
+SESSION_COOKIE_SECURE = _env_bool("DJANGO_SESSION_COOKIE_SECURE", not DEBUG)
+CSRF_COOKIE_SECURE = _env_bool("DJANGO_CSRF_COOKIE_SECURE", not DEBUG)
+SECURE_HSTS_SECONDS = _env_int("DJANGO_SECURE_HSTS_SECONDS", 31536000 if not DEBUG else 0)
+SECURE_HSTS_INCLUDE_SUBDOMAINS = _env_bool("DJANGO_SECURE_HSTS_INCLUDE_SUBDOMAINS", not DEBUG)
+SECURE_HSTS_PRELOAD = _env_bool("DJANGO_SECURE_HSTS_PRELOAD", not DEBUG)
+X_FRAME_OPTIONS = os.getenv("DJANGO_X_FRAME_OPTIONS", "DENY" if not DEBUG else "SAMEORIGIN").upper()

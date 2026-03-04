@@ -4,9 +4,9 @@
 {% block content %}
 <div class="dashboard">
   <div class="dashboard__main">
-<div class="mb-6">
-  <h1 class="text-3xl font-bold">Панель управления — {{ user.get_role_display }}</h1>
-  <p class="text-gray-600 mt-2">
+<div class="dashboard-hero mb-6">
+  <h1 class="text-3xl font-bold dashboard-hero__title">Панель управления — {{ user.get_role_display }}</h1>
+  <p class="text-gray-600 mt-2 dashboard-hero__subtitle">
     {% if user.role == "teacher" or user.role == "program_leader" %}
       Управляйте курсами, темами и силлабусами в едином пространстве AlmaU.
     {% elif user.role == "dean" %}
@@ -17,6 +17,18 @@
       Административная панель управления системой и процессом согласования.
     {% endif %}
   </p>
+  <div class="dashboard-hero__chips">
+    {% if user.can_view_courses %}
+      <span class="dashboard-chip">Курсы: {{ my_courses_count|default:"0" }}</span>
+    {% endif %}
+    {% if user.can_view_shared_courses %}
+      <span class="dashboard-chip">Общие курсы: {{ shared_courses_count|default:"0" }}</span>
+    {% endif %}
+    <span class="dashboard-chip">Силлабусы: {{ syllabi_count|default:"0" }}</span>
+    {% if user.role == "teacher" or user.role == "program_leader" %}
+      <span class="dashboard-chip">Общие силлабусы: {{ shared_syllabi_count|default:"0" }}</span>
+    {% endif %}
+  </div>
 </div>
 
 {% if user.can_view_courses or user.can_view_shared_courses %}
@@ -78,7 +90,7 @@
     </div>
   </div>
 
-  <div class="card p-5">
+  <div class="card p-5 dashboard-onboarding">
     <h2 class="text-xl font-semibold mb-3">Первые шаги</h2>
     <ol class="list-decimal ml-6 text-slate-600 space-y-2">
       <li>Создайте курс и заполните банк тем (названия, часы, литература).</li>
@@ -122,14 +134,14 @@
   </div>
 {% endif %}
 
-  <div class="card p-5 approval-board">
+  <div class="card p-5 approval-board dashboard-approval">
     <div class="approval-board__header">
       <div>
         <h2 class="text-xl font-semibold">Согласование</h2>
         <p class="text-sm text-slate-600">Все статусы и решения по силлабусам собраны в одном месте.</p>
       </div>
       <div class="status-legend">
-        <span class="status-pill status-pill--approved_umu">Утверждено</span>
+        <span class="status-pill status-pill--approved">Утверждено</span>
         <span class="status-pill status-pill--rejected">Отклонено</span>
       </div>
     </div>
@@ -172,12 +184,12 @@
                   <div class="approval-actions">
                     <a href="{% url 'syllabus_detail' syllabus.pk %}" class="btn-secondary">Открыть</a>
                     {% if syllabus.creator != user %}
-                      <form method="post" action="{% url 'syllabus_change_status' syllabus.pk 'approved_dean' %}" class="approval-action-form">
+                      <form method="post" action="{% url 'syllabus_change_status' syllabus.pk 'review_umu' %}" class="approval-action-form">
                         {% csrf_token %}
                         <input type="text" name="comment" placeholder="Комментарий" class="approval-input">
                         <button class="btn-primary">Утвердить</button>
                       </form>
-                      <form method="post" action="{% url 'syllabus_change_status' syllabus.pk 'rejected' %}" class="approval-action-form">
+                      <form method="post" action="{% url 'syllabus_change_status' syllabus.pk 'correction' %}" class="approval-action-form">
                         {% csrf_token %}
                         <input type="text" name="comment" placeholder="Причина отклонения" class="approval-input" required>
                         <button class="btn-secondary">Отклонить</button>
@@ -206,12 +218,12 @@
                   <div class="approval-actions">
                     <a href="{% url 'syllabus_detail' syllabus.pk %}" class="btn-secondary">Открыть</a>
                     {% if syllabus.creator != user %}
-                      <form method="post" action="{% url 'syllabus_change_status' syllabus.pk 'approved_umu' %}" class="approval-action-form">
+                      <form method="post" action="{% url 'syllabus_change_status' syllabus.pk 'approved' %}" class="approval-action-form">
                         {% csrf_token %}
                         <input type="text" name="comment" placeholder="Комментарий" class="approval-input">
                         <button class="btn-primary">Финально утвердить</button>
                       </form>
-                      <form method="post" action="{% url 'syllabus_change_status' syllabus.pk 'rejected' %}" class="approval-action-form">
+                      <form method="post" action="{% url 'syllabus_change_status' syllabus.pk 'correction' %}" class="approval-action-form">
                         {% csrf_token %}
                         <input type="text" name="comment" placeholder="Причина отклонения" class="approval-input" required>
                         <button class="btn-secondary">Отклонить</button>
@@ -230,7 +242,7 @@
   </div>
   </div>
   <aside class="dashboard__aside">
-    <div class="card p-5">
+    <div class="card p-5 dashboard-announcements">
       <div class="flex items-center justify-between mb-3">
         <h2 class="text-lg font-semibold">Объявления</h2>
         <span class="badge">Декан / УМУ</span>
@@ -277,7 +289,7 @@
         </div>
       {% endif %}
     </div>
-    <div class="card p-5">
+    <div class="card p-5 dashboard-notices">
       <div class="flex items-center justify-between mb-3">
         <h2 class="text-lg font-semibold">Уведомления</h2>
       </div>

@@ -1,8 +1,9 @@
 {% extends "base.html" %}
 {% block title %}Мои силлабусы{% endblock %}
+{% block body_class %}syllabi-list-page{% endblock %}
 
 {% block content %}
-<div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
+<div class="syllabi-list-hero flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
   <div>
     <h1 class="text-2xl font-bold text-slate-800">Мои силлабусы</h1>
     <p class="text-slate-500 text-sm mt-1">Здесь хранятся все ваши документы и их статусы.</p>
@@ -10,14 +11,14 @@
   
   {% if user.is_teacher_like %}
     <div class="flex gap-2">
-      <a href="{% url 'upload_pdf' %}" class="btn-primary shadow-md flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">
+      <a href="{% url 'upload_pdf' %}" class="btn-primary flex items-center gap-2">
         <i class="fas fa-plus"></i> Загрузить новый силлабус
       </a>
     </div>
   {% endif %}
 </div>
 
-<form method="get" class="card p-4 mb-6 bg-white shadow-sm border border-slate-200">
+<form method="get" class="syllabi-filter card p-4 mb-6 bg-white shadow-sm border border-slate-200">
   <div class="grid gap-4 md:grid-cols-4 lg:grid-cols-5">
     <div class="md:col-span-2">
       <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Поиск</label>
@@ -48,7 +49,7 @@
   </div>
 </form>
 
-<div class="card overflow-hidden bg-white shadow-sm border border-slate-200 rounded-lg">
+<div class="syllabi-table card overflow-hidden bg-white shadow-sm border border-slate-200 rounded-lg">
   <table class="w-full text-left text-sm">
     <thead class="bg-slate-50 text-slate-500 font-semibold border-b">
       <tr>
@@ -74,18 +75,12 @@
             {{ syllabus.creator.get_full_name|default:syllabus.creator.username }}
         </td>
         <td class="p-4">
-          <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-            {% if syllabus.status == 'approved' %} bg-green-100 text-green-800
-            {% elif syllabus.status == 'correction' %} bg-red-100 text-red-800
-            {% elif syllabus.status == 'ai_check' %} bg-amber-100 text-amber-800 animate-pulse
-            {% else %} bg-slate-100 text-slate-800 {% endif %}">
-            {{ syllabus.get_status_display }}
-          </span>
+          <span class="status-pill status-pill--{{ syllabus.status }}">{{ syllabus.get_status_display }}</span>
         </td>
         <td class="p-4 text-right flex justify-end gap-2">
           {% if syllabus.pdf_file %}
             <a href="{{ syllabus.pdf_file.url }}" target="_blank" class="text-slate-400 hover:text-blue-600 p-1" title="Скачать PDF">
-                📄
+                <i class="fa-regular fa-file-pdf"></i>
             </a>
           {% endif %}
           <a href="{% url 'syllabus_detail' syllabus.pk %}" class="btn-secondary px-3 py-1 text-xs">
@@ -96,7 +91,7 @@
     {% empty %}
       <tr>
         <td colspan="5" class="p-8 text-center text-slate-500">
-          <div class="text-4xl mb-2">📂</div>
+          <div class="text-4xl mb-2"><i class="fa-regular fa-folder-open"></i></div>
           <p>Список пуст.</p>
           {% if user.is_teacher_like %}
             <a href="{% url 'upload_pdf' %}" class="text-blue-600 hover:underline mt-2 inline-block">Загрузить первый силлабус</a>

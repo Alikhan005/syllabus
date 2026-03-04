@@ -60,7 +60,7 @@ class SignupForm(UserCreationForm):
 
         existing = User.objects.filter(username__iexact=username).first()
         if existing:
-            if existing.is_active or existing.email_verified:
+            if existing.is_active:
                 raise ValidationError("Пользователь с таким именем уже существует.")
             self._set_existing_user(existing)
         return username
@@ -72,7 +72,7 @@ class SignupForm(UserCreationForm):
 
         existing = User.objects.filter(email__iexact=email).first()
         if existing:
-            if existing.is_active or existing.email_verified:
+            if existing.is_active:
                 raise ValidationError("Пользователь с таким email уже существует.")
             self._set_existing_user(existing)
         return email
@@ -126,6 +126,24 @@ class PasswordResetIdentifierForm(PasswordResetForm):
             }
         ),
     )
+
+
+    def clean_email(self):
+        identifier = (self.cleaned_data.get("email") or "").strip()
+        if not identifier:
+            raise ValidationError("Enter email or username.")
+
+        if "@" in identifier:
+            return identifier
+
+        user = (
+            User.objects.filter(username__iexact=identifier, is_active=True)
+            .exclude(email="")
+            .first()
+        )
+        if user:
+            return user.email
+        return identifier
 
 
 class EmailVerificationForm(forms.Form):
