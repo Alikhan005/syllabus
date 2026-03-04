@@ -89,6 +89,9 @@
                 Шаг 1: выберите темы из банка. Шаг 2: заполните детали. Шаг 3: отправьте на проверку ИИ.
             </p>
         </div>
+        <p class="mt-1 text-xs text-slate-500">
+            Выбирайте один сценарий: конструктор или загрузка готового файла. Одновременно оба сценария не обязательны.
+        </p>
         <div class="flex flex-wrap gap-2">
             <a href="{% url 'syllabus_edit_topics' syllabus.pk %}" class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 transition">
                 Редактировать темы
@@ -248,6 +251,9 @@
     <h3 class="text-xl font-bold text-slate-800 mb-2">Загрузить силлабус</h3>
     <p class="text-slate-500 mb-6">Загрузите PDF или Word файл для автоматической проверки ИИ.</p>
     
+    <p class="text-xs text-slate-500 mb-6">
+        Это альтернативный сценарий. Если силлабус уже собран в конструкторе выше, файл можно не загружать.
+    </p>
     <form action="{% url 'syllabus_upload_file' pk=syllabus.pk %}" method="post" enctype="multipart/form-data" class="inline-block">
         {% csrf_token %}
         <label class="cursor-pointer bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-8 rounded-xl shadow-lg shadow-blue-200 transition transform hover:-translate-y-1 inline-flex items-center gap-3">
