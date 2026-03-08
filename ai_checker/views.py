@@ -34,13 +34,13 @@ def _can_request_ai_check(user, syllabus: Syllabus) -> bool:
 def run_check(request, syllabus_pk):
     syllabus = get_object_or_404(Syllabus, pk=syllabus_pk)
     if not _can_view(request.user, syllabus):
-        raise PermissionDenied("Access denied to this syllabus.")
+        raise PermissionDenied("Нет доступа к этому силлабусу.")
     if not _can_request_ai_check(request.user, syllabus):
-        raise PermissionDenied("Insufficient rights to run AI check.")
+        raise PermissionDenied("Недостаточно прав для запуска AI-проверки.")
     if syllabus.status not in AI_CHECK_START_STATUSES:
         messages.error(
             request,
-            "AI check can be started only from draft, correction, or AI_CHECK.",
+            "AI-проверку можно запускать только из черновика, доработки или статуса проверки ИИ.",
         )
         return redirect("syllabus_detail", pk=syllabus.pk)
     if request.method == "POST":
@@ -48,9 +48,9 @@ def run_check(request, syllabus_pk):
             syllabus.status = Syllabus.Status.AI_CHECK
             syllabus.ai_feedback = ""
             syllabus.save(update_fields=["status", "ai_feedback"])
-            messages.success(request, "AI check started. Refresh after a while.")
+            messages.success(request, "Документ поставлен в очередь на AI-проверку.")
         else:
-            messages.info(request, "AI check is already running.")
+            messages.info(request, "AI-проверка уже выполняется.")
         return redirect("syllabus_detail", pk=syllabus.pk)
     return redirect("syllabus_detail", pk=syllabus.pk)
 
@@ -59,7 +59,7 @@ def run_check(request, syllabus_pk):
 def check_detail(request, pk):
     check = get_object_or_404(AiCheckResult, pk=pk)
     if not _can_view(request.user, check.syllabus):
-        raise PermissionDenied("Access denied to AI check result.")
+        raise PermissionDenied("Нет доступа к результату AI-проверки.")
     return render(request, "ai_checker/check_detail.html", {"check": check})
 
 
@@ -73,7 +73,7 @@ def assistant_reply(request):
     if syllabus_id:
         syllabus = get_object_or_404(Syllabus, pk=syllabus_id)
         if not _can_view(request.user, syllabus):
-            raise PermissionDenied("Access denied to selected syllabus.")
+            raise PermissionDenied("Нет доступа к выбранному силлабусу.")
 
     if not message:
         return render(
@@ -81,7 +81,7 @@ def assistant_reply(request):
             "ai_checker/assistant_response.html",
             {
                 "question": "",
-                "answer": "Enter a question to get an answer.",
+                "answer": "Введите вопрос, чтобы получить ответ.",
                 "model_name": "",
             },
         )

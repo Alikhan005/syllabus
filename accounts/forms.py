@@ -131,7 +131,7 @@ class PasswordResetIdentifierForm(PasswordResetForm):
     def clean_email(self):
         identifier = (self.cleaned_data.get("email") or "").strip()
         if not identifier:
-            raise ValidationError("Enter email or username.")
+            raise ValidationError("Введите email или логин.")
 
         if "@" in identifier:
             return identifier

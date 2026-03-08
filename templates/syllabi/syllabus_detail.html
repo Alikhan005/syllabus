@@ -69,35 +69,8 @@
   </div>
 </div>
 
-
-{% if can_edit_constructor %}
-<div class="syllabus-constructor mb-8 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-    <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div>
-            <h3 class="text-lg font-bold text-slate-800">Конструктор силлабуса</h3>
-            <p class="mt-1 text-sm text-slate-600">
-                Шаг 1: выберите темы из банка. Шаг 2: заполните детали. Шаг 3: отправьте на проверку ИИ.
-            </p>
-        </div>
-        <p class="mt-1 text-xs text-slate-500">
-            Выбирайте один сценарий: конструктор или загрузка готового файла. Одновременно оба сценария не обязательны.
-        </p>
-        <div class="syllabus-constructor__actions flex flex-wrap gap-2">
-            <a href="{% url 'syllabus_edit_topics' syllabus.pk %}" class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 transition">
-                Редактировать темы
-            </a>
-            <a href="{% url 'syllabus_edit_details' syllabus.pk %}" class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 transition">
-                Редактировать детали
-            </a>
-            <form method="post" action="{% url 'send_to_ai_check' syllabus.pk %}">
-                {% csrf_token %}
-                <button class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition">
-                    Отправить на проверку ИИ
-                </button>
-            </form>
-        </div>
-    </div>
-</div>
+{% if show_edit_panel_before_feedback %}
+    {% include "syllabi/_edit_panel.html" %}
 {% endif %}
 
 
@@ -107,7 +80,10 @@
         <i class="fas fa-robot text-3xl"></i>
     </div>
     <h3 class="text-xl font-bold text-slate-800">Идет проверка ИИ...</h3>
-    <p class="text-slate-500 mt-2 max-w-md">Анализируем структуру, темы и литературу. Это займет несколько секунд.</p>
+    <p class="text-slate-500 mt-2 max-w-xl">
+        Проверка обрабатывается фоновым worker. Если статус долго не меняется, запустите
+        <code>python manage.py run_worker</code>.
+    </p>
     <button onclick="window.location.reload()" class="mt-6 text-amber-600 font-medium hover:text-amber-800 underline">
         Проверить статус (Обновить)
     </button>
@@ -174,6 +150,10 @@
     </div>
     {% endif %}
 </div>
+{% endif %}
+
+{% if show_edit_panel_after_feedback %}
+    {% include "syllabi/_edit_panel.html" %}
 {% endif %}
 
 
@@ -253,7 +233,7 @@
     <p class="text-slate-500 mb-6">Загрузите PDF или Word файл для автоматической проверки ИИ.</p>
     
     <p class="text-xs text-slate-500 mb-6">
-        Это альтернативный сценарий. Если силлабус уже собран в конструкторе выше, файл можно не загружать.
+        Это альтернативный сценарий. Если силлабус уже заполнен вручную выше, файл можно не загружать.
     </p>
     <form action="{% url 'syllabus_upload_file' pk=syllabus.pk %}" method="post" enctype="multipart/form-data" class="inline-block syllabus-upload__form">
         {% csrf_token %}

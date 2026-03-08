@@ -199,6 +199,53 @@ def _build_progress_context(status: str, correction_stage_key: str = "draft") ->
     return {"width": 10, "bar_class": "bg-slate-400", "active_step": "draft"}
 
 
+def _build_edit_panel_context(syllabus: Syllabus, can_edit_constructor: bool) -> dict:
+    base_context = {
+        "show_edit_panel_before_feedback": False,
+        "show_edit_panel_after_feedback": False,
+        "edit_panel_title": "",
+        "edit_panel_description": "",
+        "edit_panel_hint": "",
+        "edit_panel_submit_label": "",
+    }
+    if not can_edit_constructor:
+        return base_context
+
+    has_uploaded_file = bool(syllabus.pdf_file)
+
+    if syllabus.status == Syllabus.Status.CORRECTION:
+        if has_uploaded_file:
+            return base_context
+        return {
+            **base_context,
+            "show_edit_panel_after_feedback": True,
+            "edit_panel_title": "Доработка вручную в системе",
+            "edit_panel_description": (
+                "Исправьте замечания в темах и деталях силлабуса, затем отправьте его "
+                "на повторную проверку ИИ."
+            ),
+            "edit_panel_hint": (
+                "Сначала обновите содержание, затем отправьте силлабус на повторную проверку."
+            ),
+            "edit_panel_submit_label": "Отправить на повторную проверку ИИ",
+        }
+
+    return {
+        **base_context,
+        "show_edit_panel_before_feedback": True,
+        "edit_panel_title": "Заполнение силлабуса вручную",
+        "edit_panel_description": (
+            "Шаг 1: выберите темы из банка. Шаг 2: заполните детали. "
+            "Шаг 3: отправьте на проверку ИИ."
+        ),
+        "edit_panel_hint": (
+            "Выбирайте один сценарий: заполнение вручную или загрузка готового файла. "
+            "Одновременно оба сценария не обязательны."
+        ),
+        "edit_panel_submit_label": "Отправить на проверку ИИ",
+    }
+
+
 @login_required
 def syllabi_list(request):
     """Личные силлабусы преподавателя."""
@@ -333,10 +380,10 @@ def syllabus_create(request):
 
             if syllabus.pdf_file:
                 syllabus.status = Syllabus.Status.AI_CHECK
-                success_message = "File uploaded. AI check started."
+                success_message = "Файл загружен. Документ поставлен в очередь на AI-проверку."
             else:
                 syllabus.status = Syllabus.Status.DRAFT
-                success_message = "Syllabus created as draft."
+                success_message = "Силлабус создан как черновик."
 
             syllabus.save()
             messages.success(request, success_message)
@@ -345,7 +392,7 @@ def syllabus_create(request):
         form = SyllabusForm(user=request.user)
 
     if not form.fields["course"].queryset.exists():
-        messages.warning(request, "You have no available courses. Please contact admin.")
+        messages.warning(request, "У вас нет доступных дисциплин. Обратитесь к администратору.")
 
     return render(request, "syllabi/upload_pdf.html", {"form": form})
 
@@ -371,7 +418,7 @@ def upload_pdf_view(request):
             else:
                 syllabus.status = Syllabus.Status.AI_CHECK # На проверку ИИ
                 syllabus.save()
-                messages.success(request, "Файл загружен! Запущена автоматическая проверка ИИ.")
+                messages.success(request, "Файл загружен. Документ поставлен в очередь на AI-проверку.")
                 return redirect("syllabus_detail", pk=syllabus.pk)
     else:
         form = SyllabusForm(user=request.user)
@@ -438,7 +485,7 @@ def syllabus_detail(request, pk):
         syllabus.status,
         correction_stage_key=correction_context.get("stage_key", "draft"),
     )
-
+    edit_panel_context = _build_edit_panel_context(syllabus, can_edit_constructor)
     return render(
         request,
         "syllabi/syllabus_detail.html",
@@ -465,6 +512,7 @@ def syllabus_detail(request, pk):
             "status_progress_width": progress_context["width"],
             "status_progress_class": progress_context["bar_class"],
             "status_progress_step": progress_context["active_step"],
+            **edit_panel_context,
         },
     )
 
@@ -644,7 +692,7 @@ def send_to_ai_check(request, pk):
     SyllabusRevision.objects.create(
         syllabus=syllabus, changed_by=request.user, version_number=syllabus.version_number, note="Отправлено на проверку ИИ"
     )
-    messages.success(request, "Силлабус отправлен на проверку ИИ. Ожидайте результата.")
+    messages.success(request, "Силлабус поставлен в очередь на AI-проверку.")
     return redirect('syllabus_detail', pk=pk)
 
 
@@ -702,9 +750,11 @@ def syllabus_upload_file(request, pk):
         if is_creator and syllabus.status in [Syllabus.Status.CORRECTION, Syllabus.Status.DRAFT]:
             syllabus.status = Syllabus.Status.AI_CHECK
             syllabus.ai_feedback = ""
-            messages.success(request, "Файл обновлен! Запущен повторный анализ ИИ.")
+            messages.success(request, "Файл обновлён. Документ поставлен в очередь на повторную AI-проверку.")
+            queue_has_file = True
         else:
-             messages.success(request, "Файл обновлен.")
+             messages.success(request, "Файл обновлён.")
+             queue_has_file = False
         
         syllabus.save()
         

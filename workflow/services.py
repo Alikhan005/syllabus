@@ -75,34 +75,34 @@ def _notify_on_status_change(syllabus: Syllabus, new_status: str, comment: str =
 
         if new_status == Syllabus.Status.REVIEW_DEAN:
             recipients = _collect_role_emails("dean")
-            subject = f"Syllabus requires dean review: {syllabus.course.code}"
+            subject = f"Требуется согласование декана: {syllabus.course.code}"
             message = (
-                "A syllabus has been submitted for your review.\n"
-                f"Course: {syllabus.course.display_title}\n"
-                f"Author: {syllabus.creator.get_full_name() or syllabus.creator.username}"
+                "Новый силлабус отправлен на ваше согласование.\n"
+                f"Курс: {syllabus.course.display_title}\n"
+                f"Автор: {syllabus.creator.get_full_name() or syllabus.creator.username}"
             )
 
         elif new_status == Syllabus.Status.REVIEW_UMU:
             recipients = _collect_role_emails("umu")
-            subject = f"Syllabus passed dean review: {syllabus.course.code}"
+            subject = f"Требуется финальная проверка УМУ: {syllabus.course.code}"
             message = (
-                "Dean review is complete. Final UMU review is required.\n"
-                f"Course: {syllabus.course.display_title}"
+                "Декан согласовал силлабус. Требуется финальная проверка УМУ.\n"
+                f"Курс: {syllabus.course.display_title}"
             )
 
         elif new_status == Syllabus.Status.APPROVED:
             if syllabus.creator.email:
                 recipients = [syllabus.creator.email]
-                subject = f"Syllabus approved: {syllabus.course.code}"
-                message = f"Your syllabus for {syllabus.course.code} has been officially approved."
+                subject = f"Силлабус утверждён: {syllabus.course.code}"
+                message = f"Ваш силлабус по курсу {syllabus.course.code} официально утверждён."
 
         elif new_status == Syllabus.Status.CORRECTION:
             if syllabus.creator.email:
                 recipients = [syllabus.creator.email]
-                subject = f"Syllabus requires correction: {syllabus.course.code}"
+                subject = f"Силлабус возвращён на доработку: {syllabus.course.code}"
                 message = (
-                    "Your syllabus was returned for correction.\n\n"
-                    f"Comment:\n{comment}"
+                    "Ваш силлабус возвращён на доработку.\n\n"
+                    f"Комментарий:\n{comment}"
                 )
 
         if recipients:
@@ -125,7 +125,7 @@ def change_status(user, syllabus: Syllabus, new_status: str, comment: str = ""):
     comment = (comment or "").strip()
 
     if new_status not in _ALLOWED_STATUSES:
-        raise ValueError("Unsupported status transition target.")
+        raise ValueError("Недопустимый целевой статус.")
 
     # Normalize legacy status values that may still exist in DB.
     if syllabus.status != old_status:
@@ -147,7 +147,7 @@ def change_status(user, syllabus: Syllabus, new_status: str, comment: str = ""):
 
     if new_status == Syllabus.Status.REVIEW_DEAN:
         if not (is_creator or is_admin):
-            raise PermissionDenied("Only the author can submit a syllabus for dean review.")
+            raise PermissionDenied("Только автор может отправить силлабус на согласование декану.")
 
         allowed_prev = [
             Syllabus.Status.DRAFT,
@@ -156,41 +156,41 @@ def change_status(user, syllabus: Syllabus, new_status: str, comment: str = ""):
             Syllabus.Status.REVIEW_DEAN,
         ]
         if old_status not in allowed_prev and not is_admin:
-            raise PermissionDenied("Invalid status for submission to dean.")
+            raise PermissionDenied("Текущий статус не позволяет отправить силлабус декану.")
 
     elif new_status == Syllabus.Status.REVIEW_UMU:
         if not is_dean:
-            raise PermissionDenied("Only dean can forward a syllabus to UMU.")
+            raise PermissionDenied("Только декан может передать силлабус в УМУ.")
         if is_creator and not is_admin:
-            raise PermissionDenied("Author cannot approve their own syllabus at dean stage.")
+            raise PermissionDenied("Автор не может согласовать собственный силлабус на этапе декана.")
         if old_status != Syllabus.Status.REVIEW_DEAN and not is_admin:
-            raise PermissionDenied("Syllabus must be in dean review status first.")
+            raise PermissionDenied("Силлабус должен быть в статусе согласования деканом.")
 
     elif new_status == Syllabus.Status.APPROVED:
         if not is_umu:
-            raise PermissionDenied("Only UMU can finalize syllabus approval.")
+            raise PermissionDenied("Только УМУ может финально утвердить силлабус.")
         if is_creator and not is_admin:
-            raise PermissionDenied("Author cannot finalize approval for their own syllabus.")
+            raise PermissionDenied("Автор не может финально утвердить собственный силлабус.")
         if old_status != Syllabus.Status.REVIEW_UMU and not is_admin:
-            raise PermissionDenied("Syllabus must be in UMU review status first.")
+            raise PermissionDenied("Силлабус должен быть в статусе согласования УМУ.")
 
     elif new_status == Syllabus.Status.CORRECTION:
         if not (is_dean or is_umu):
-            raise PermissionDenied("Only dean or UMU can return syllabus for correction.")
+            raise PermissionDenied("Только декан или УМУ могут вернуть силлабус на доработку.")
         if old_status not in _REVIEW_STATUSES and not is_admin:
-            raise PermissionDenied("Syllabus must be in dean or UMU review status first.")
+            raise PermissionDenied("Силлабус должен быть на согласовании у декана или УМУ.")
         if not comment:
-            raise ValueError("Comment is required when returning for correction.")
+            raise ValueError("При возврате на доработку нужен комментарий.")
 
     elif new_status == Syllabus.Status.REJECTED:
         if not (is_dean or is_umu):
-            raise PermissionDenied("Only dean or UMU can reject a syllabus.")
+            raise PermissionDenied("Только декан или УМУ могут отклонить силлабус.")
         if old_status not in _REVIEW_STATUSES and not is_admin:
-            raise PermissionDenied("Syllabus must be in dean or UMU review status first.")
+            raise PermissionDenied("Силлабус должен быть на согласовании у декана или УМУ.")
         if not comment:
-            raise ValueError("Comment is required when rejecting a syllabus.")
+            raise ValueError("При отклонении нужен комментарий.")
     else:
-        raise PermissionDenied("Manual transition to this status is not allowed.")
+        raise PermissionDenied("Ручной переход в этот статус запрещён.")
 
     with transaction.atomic():
         syllabus.status = new_status
@@ -236,7 +236,7 @@ def change_status_system(
     comment = (comment or "").strip()
 
     if new_status not in _ALLOWED_STATUSES:
-        raise ValueError("Unsupported status transition target.")
+        raise ValueError("Недопустимый целевой статус.")
 
     if syllabus.status != old_status:
         syllabus.status = old_status

@@ -196,6 +196,52 @@ def _build_representative_excerpt(full_text: str) -> str:
     return f"{text[:head_budget]}{separator}{text[-tail_budget:]}"
 
 
+def _missing_extractor_feedback(file_path: str) -> str | None:
+    lower_path = (file_path or "").lower()
+    if lower_path.endswith(".pdf") and MarkItDown is None and pypdf is None:
+        return (
+            "<h3>Ошибка AI-проверки</h3>"
+            "<p>Не установлены зависимости для чтения PDF.</p>"
+            "<p>Установите дополнительные пакеты командой <code>pip install -r requirements-ai.txt</code> "
+            "и повторите проверку.</p>"
+        )
+
+    if lower_path.endswith((".doc", ".docx")) and MarkItDown is None:
+        return (
+            "<h3>Ошибка AI-проверки</h3>"
+            "<p>Не установлены зависимости для чтения Word-файлов.</p>"
+            "<p>Установите дополнительные пакеты командой <code>pip install -r requirements-ai.txt</code> "
+            "и повторите проверку.</p>"
+        )
+
+    return None
+
+
+def _humanize_runtime_error(exc: Exception) -> str:
+    message = str(exc or "").strip()
+    plain = message.lower()
+
+    if "requirements-ai.txt" in plain or ("httpx" in plain and "remote llm" in plain):
+        body = (
+            "Не установлены дополнительные AI-зависимости для удалённой LLM. "
+            "Установите <code>requirements-ai.txt</code>."
+        )
+    elif "remote llm is not configured" in plain or "llm_api_key" in plain:
+        body = (
+            "Удалённая LLM не настроена. Укажите <code>LLM_API_KEY</code> "
+            "или переключитесь на локальную модель."
+        )
+    elif "llama-cpp-python" in plain or "llm model not found" in plain:
+        body = (
+            "Локальная LLM не настроена. Установите <code>llama-cpp-python</code> и задайте "
+            "<code>LLM_MODEL_PATH</code>, либо настройте удалённую API-модель."
+        )
+    else:
+        body = html.escape(message) or "Не удалось выполнить AI-проверку."
+
+    return f"<h3>Ошибка AI-проверки</h3><p>{body}</p>"
+
+
 def extract_text_from_file(file_path: str) -> str:
     """Extract text from file with a fast path for PDF."""
     if not os.path.exists(file_path):
@@ -496,10 +542,13 @@ def run_ai_check(syllabus: Syllabus) -> AiCheckResult:
     logger.info("AI check input length=%s chars (source=%s)", len(ai_text), content_source)
 
     if len(ai_text) < 50:
+        dependency_feedback = None
+        if syllabus.pdf_file:
+            dependency_feedback = _missing_extractor_feedback(syllabus.pdf_file.path)
         return _save_check_result(
             syllabus,
             False,
-            "<h3>Ошибка</h3><p>Файл пустой или не удалось извлечь текст.</p>",
+            dependency_feedback or "<h3>Ошибка</h3><p>Файл пустой или не удалось извлечь текст.</p>",
             "empty",
             "none",
         )
@@ -552,7 +601,7 @@ def run_ai_check(syllabus: Syllabus) -> AiCheckResult:
         result_data = _apply_lenient_guardrail(result_data, full_text)
     except Exception as exc:
         logger.error("LLM error during syllabus check: %s", exc)
-        result_data = {"approved": False, "feedback": f"Ошибка ИИ: {exc}"}
+        result_data = {"approved": False, "feedback": _humanize_runtime_error(exc)}
         raw_response = str(exc)
 
     logger.info(
@@ -579,7 +628,7 @@ def _save_check_result(syllabus, approved, feedback, raw_response, model_name):
     if len(plain_feedback) > 200:
         clean_summary = plain_feedback[:200] + "..."
     else:
-        clean_summary = plain_feedback or "AI check completed."
+        clean_summary = plain_feedback or "AI-проверка завершена."
 
     return AiCheckResult.objects.create(
         syllabus=syllabus,

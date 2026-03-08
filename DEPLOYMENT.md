@@ -3,24 +3,25 @@
 ## 1. Local run (for demo / development)
 
 ### Fast start
-1. Run `start_project.bat`.
-2. Wait for two consoles:
+1. Create virtual environment if it does not exist yet: `python -m venv .venv`
+2. Run `start_project.bat`.
+3. Wait for two consoles:
    - Django server
    - AI worker
-3. Open `http://localhost:8000/`.
+4. Open `http://localhost:8000/`.
 
 Important: do not close the AI worker console. If worker is stopped, checks stay in `ai_check`.
 
 ### Manual start
 ```powershell
-venv312\Scripts\activate
+.\.venv\Scripts\Activate.ps1
 python manage.py migrate
 python manage.py runserver localhost:8000
 ```
 
 In second console:
 ```powershell
-venv312\Scripts\activate
+.\.venv\Scripts\Activate.ps1
 python manage.py run_worker
 ```
 
@@ -63,6 +64,10 @@ Production needs **2 processes**:
 2. AI worker process: `python manage.py run_worker`
 
 If worker is down, AI checks are queued but not processed.
+
+Render blueprint in this repository is a special case:
+1. `deploy/render-start.sh` launches the worker inside the same web service process.
+2. Full remote AI on Render still requires `LLM_API_KEY`.
 
 ## 5. Health checks
 

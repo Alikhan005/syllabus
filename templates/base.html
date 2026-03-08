@@ -97,7 +97,10 @@
         <div class="flex items-center space-x-3 site-nav__user">
           <a href="{% url 'profile' %}" class="nav-link">Профиль</a>
           <span class="site-nav__user-name text-sm text-gray-700">{{ user.get_full_name|default:user.username }}</span>
-          <a href="{% url 'logout' %}" class="btn-secondary">Выйти</a>
+          <form method="post" action="{% url 'logout' %}" class="site-nav__logout-form">
+            {% csrf_token %}
+            <button type="submit" class="btn-secondary">Выйти</button>
+          </form>
         </div>
       {% endif %}
     </div>

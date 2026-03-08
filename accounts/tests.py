@@ -1,5 +1,6 @@
 from django.contrib.auth import get_user_model
 from django.test import TestCase
+from django.urls import reverse
 
 from accounts.forms import PasswordResetIdentifierForm, SignupForm
 
@@ -49,3 +50,32 @@ class AccountFormsTests(TestCase):
 
         self.assertFalse(form.is_valid())
         self.assertIn("username", form.errors)
+
+
+class LogoutSecurityTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="logout_user",
+            password="pass1234",
+            role="teacher",
+            is_active=True,
+        )
+
+    def test_logout_rejects_get_requests(self):
+        self.client.force_login(self.user)
+
+        response = self.client.get(reverse("logout"))
+
+        self.assertEqual(response.status_code, 405)
+        dashboard_response = self.client.get(reverse("dashboard"))
+        self.assertEqual(dashboard_response.status_code, 200)
+
+    def test_logout_works_via_post(self):
+        self.client.force_login(self.user)
+
+        response = self.client.post(reverse("logout"))
+
+        self.assertEqual(response.status_code, 302)
+        self.assertRedirects(response, reverse("home"))
+        dashboard_response = self.client.get(reverse("dashboard"))
+        self.assertEqual(dashboard_response.status_code, 302)

@@ -3,10 +3,16 @@ import threading
 import logging
 from pathlib import Path
 
-import httpx
-
 # Configure module logger.
 logger = logging.getLogger(__name__)
+
+try:
+    import httpx
+except Exception as exc:  # pragma: no cover - optional dependency
+    httpx = None
+    _HTTPX_IMPORT_ERROR = exc
+else:
+    _HTTPX_IMPORT_ERROR = None
 
 try:
     from dotenv import load_dotenv
@@ -103,6 +109,11 @@ def _generate_remote_text(
     temperature: float,
     top_p: float,
 ) -> str:
+    if httpx is None:
+        raise RuntimeError(
+            "Remote LLM mode requires httpx. Install it from requirements-ai.txt."
+        )
+
     config = _remote_config()
     if not config:
         raise RuntimeError("Remote LLM is not configured. Set LLM_API_KEY.")

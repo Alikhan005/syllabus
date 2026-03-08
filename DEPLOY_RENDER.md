@@ -23,6 +23,7 @@ Render creates:
 2. Free Render Postgres has storage/time limits (check current Render pricing).
 3. Worker is launched inside the same web service process via `deploy/render-start.sh`.
 4. HTTPS redirect stays enabled in production because Django trusts Render's `X-Forwarded-Proto` header.
+5. For full AI-checks on uploaded files set `LLM_API_KEY` in Render environment variables. Without it the worker will fall back only to simplified checks and friendly error messages.
 
 ## 4. First check
 

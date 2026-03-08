@@ -7,16 +7,16 @@ from django.contrib.staticfiles.views import serve as staticfiles_serve
 from django.urls import include, path
 from django.views.static import serve as media_serve
 
-admin.site.site_header = "AlmaU Syllabus Copy Admin"
-admin.site.site_title = "AlmaU Syllabus Copy"
-admin.site.index_title = "Administration"
+admin.site.site_header = "AlmaU Syllabus Admin"
+admin.site.site_title = "AlmaU Syllabus"
+admin.site.index_title = "Администрирование"
 
 # ИСПРАВЛЕНИЕ: Убрали verify_email и resend_email_code
 from accounts.views import (
     LoginGateView,
-    LogoutAllowGetView,
     PasswordResetGateView,
     ProfileView,
+    SecureLogoutView,
     SignupView,
 )
 from .views import create_announcement, dashboard
@@ -43,7 +43,7 @@ urlpatterns = [
         ),
         name="login",
     ),
-    path("accounts/logout/", LogoutAllowGetView.as_view(), name="logout"),
+    path("accounts/logout/", SecureLogoutView.as_view(), name="logout"),
     path("accounts/signup/", SignupView.as_view(), name="signup"),
     
     # МАРШРУТЫ ПОДТВЕРЖДЕНИЯ ПОЧТЫ УДАЛЕНЫ

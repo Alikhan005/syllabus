@@ -1,0 +1,7 @@
+-r requirements.txt
+
+# AI / NLP / document extraction
+httpx==0.28.1
+llama-cpp-python
+markitdown[pdf]==0.1.4
+pypdf==5.1.0

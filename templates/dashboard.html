@@ -93,16 +93,16 @@
   <div class="card p-5 dashboard-onboarding">
     <h2 class="text-xl font-semibold mb-3">Первые шаги</h2>
     <ol class="list-decimal ml-6 text-slate-600 space-y-2">
-      <li>Создайте курс и заполните банк тем (названия, часы, литература).</li>
-      <li>Загрузите готовый файл силлабуса (PDF/Word) для автоматической проверки.</li>
-      <li>Проверьте отчет ИИ и отправьте документ на согласование.</li>
+      <li>Сначала создайте курс и заполните банк тем.</li>
+      <li>Потом выберите один путь для силлабуса: заполнить его вручную в системе или загрузить готовый PDF/Word.</li>
+      <li>После проверки ИИ исправьте замечания и отправьте документ на согласование.</li>
     </ol>
     <p class="text-sm text-slate-500 mt-2">
-      Важно: можно использовать либо конструктор, либо импорт готового файла. Достаточно одного пути.
+      Важно: кнопка «Создать курс» создает дисциплину, а не сам силлабус. Для быстрого старта используйте загрузку готового файла.
     </p>
     {% if user.can_view_courses %}
       <div class="flex flex-wrap gap-2 mt-4 dashboard-onboarding__actions">
-        <a href="{% url 'syllabus_create' %}" class="btn-secondary dashboard-onboarding__button">Создать силлабус</a>
+        <a href="{% url 'upload_pdf' %}" class="btn-secondary dashboard-onboarding__button">Загрузить готовый файл</a>
         <a href="{% url 'course_create' %}" class="btn-primary dashboard-onboarding__button">Создать курс</a>
       </div>
     {% endif %}

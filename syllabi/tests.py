@@ -253,6 +253,44 @@ class SyllabusRoleViewTests(TestCase):
         self.assertContains(response, "Причина понятная")
         self.assertNotContains(response, "returned for correction")
 
+    def test_uploaded_file_correction_hides_constructor_panel(self):
+        teacher = self._create_user("teacher_uploaded_flow", "teacher")
+        course = self._create_course(teacher, code="CS407D")
+        uploaded = SimpleUploadedFile("syllabus.pdf", b"%PDF-1.4 fake", content_type="application/pdf")
+        syllabus = Syllabus.objects.create(
+            course=course,
+            creator=teacher,
+            semester="Fall 2025",
+            academic_year="2025-2026",
+            status=Syllabus.Status.CORRECTION,
+            pdf_file=uploaded,
+            ai_feedback="<p>Есть замечания.</p>",
+        )
+
+        self.client.force_login(teacher)
+        response = self.client.get(reverse("syllabus_detail", args=[syllabus.pk]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, "Заполнение силлабуса вручную")
+        self.assertNotContains(response, "Ручная доработка в системе")
+
+    def test_draft_without_file_still_shows_constructor(self):
+        teacher = self._create_user("teacher_constructor_flow", "teacher")
+        course = self._create_course(teacher, code="CS407E")
+        syllabus = Syllabus.objects.create(
+            course=course,
+            creator=teacher,
+            semester="Fall 2025",
+            academic_year="2025-2026",
+            status=Syllabus.Status.DRAFT,
+        )
+
+        self.client.force_login(teacher)
+        response = self.client.get(reverse("syllabus_detail", args=[syllabus.pk]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Заполнение силлабуса вручную")
+
     def test_send_to_ai_check_requires_post(self):
         teacher = self._create_user("teacher_send_ai_get", "teacher")
         course = self._create_course(teacher, code="CS408")

@@ -47,9 +47,9 @@ class LoginGateView(BaseLoginView):
         return super().form_valid(form)
 
 
-class LogoutAllowGetView(LogoutView):
-    """Разрешить выход через GET."""
-    http_method_names = ["get", "head", "options", "post"]
+class SecureLogoutView(LogoutView):
+    """Безопасный выход только через POST."""
+    http_method_names = ["post", "options"]
 
 
 class SignupView(CreateView):

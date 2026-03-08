@@ -712,6 +712,15 @@ textarea::placeholder {
   justify-content: flex-end;
 }
 
+.site-nav__logout-form {
+  margin: 0;
+  display: inline-flex;
+}
+
+.site-nav__logout-form .btn-secondary {
+  cursor: pointer;
+}
+
 .site-nav__help {
   display: flex;
   align-items: center;
