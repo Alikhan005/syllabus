@@ -79,3 +79,13 @@ class LogoutSecurityTests(TestCase):
         self.assertRedirects(response, reverse("home"))
         dashboard_response = self.client.get(reverse("dashboard"))
         self.assertEqual(dashboard_response.status_code, 302)
+
+
+class PasswordResetRouteTests(TestCase):
+    def test_password_reset_confirm_route_is_standard(self):
+        url = reverse(
+            "password_reset_confirm",
+            kwargs={"uidb64": "abc123", "token": "set-password"},
+        )
+
+        self.assertEqual(url, "/accounts/reset/abc123/set-password/")

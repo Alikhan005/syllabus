@@ -76,8 +76,6 @@ urlpatterns = [
         ),
         name="password_reset_complete",
     ),
-    path("accounts/", include("django.contrib.auth.urls")),
-    
     # Дашборд
     path("dashboard/", dashboard, name="dashboard"),
     path("dashboard/announcements/new/", create_announcement, name="announcement_create"),
