@@ -13,7 +13,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
   <script src="https://unpkg.com/htmx.org@2.0.0"></script>
   <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="stylesheet" href="{% static 'css/style.css' %}?v=17">
+  <link rel="stylesheet" href="{% static 'css/style.css' %}?v=21">
 </head>
 <body class="bg-slate-100 text-slate-800 {% block body_class %}{% endblock %}">
   {% if user.is_authenticated and not hide_nav %}
@@ -78,21 +78,47 @@
               <span class="site-nav__alerts-badge">{{ sidebar_notifications_count }}</span>
             {% endif %}
           </button>
-          <div id="site-nav-alerts-panel" class="site-nav__alerts-panel" data-alerts-panel hidden>
-            <div class="site-nav__alerts-header" data-alerts-header>Новых уведомлений: {{ sidebar_notifications_count }}</div>
+          <aside id="site-nav-alerts-panel" class="site-nav__alerts-panel" data-alerts-panel hidden>
+            <div class="site-nav__alerts-panel-top">
+              <div class="site-nav__alerts-panel-copy">
+                <div class="site-nav__alerts-kicker">Уведомления</div>
+                <div class="site-nav__alerts-header" data-alerts-header>Новых уведомлений: {{ sidebar_notifications_count }}</div>
+              </div>
+              <button
+                type="button"
+                class="site-nav__alerts-close"
+                data-alerts-close
+                aria-label="Закрыть уведомления"
+              >
+                <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+              </button>
+            </div>
             <div class="site-nav__alerts-list">
               {% if sidebar_notifications %}
                 {% for item in sidebar_notifications %}
                   <a href="{% url 'syllabus_detail' item.syllabus_id %}" class="site-nav__alerts-item">
-                    <span class="site-nav__alerts-item-title">{{ item.title }}</span>
-                    <span class="site-nav__alerts-item-meta">{{ item.changed_at|date:"d.m.Y H:i" }} - {{ item.actor_label }}</span>
+                    <span class="site-nav__alerts-item-icon" aria-hidden="true">
+                      <i class="fa-regular fa-bell"></i>
+                    </span>
+                    <span class="site-nav__alerts-item-content">
+                    <span class="site-nav__alerts-item-top">
+                      <span class="site-nav__alerts-item-title">{{ item.title }}</span>
+                      {% if item.is_unread %}
+                        <span class="site-nav__alerts-item-dot" aria-hidden="true"></span>
+                      {% endif %}
+                    </span>
+                    {% if item.body %}
+                      <span class="site-nav__alerts-item-body">{{ item.body }}</span>
+                    {% endif %}
+                    <span class="site-nav__alerts-item-meta">{{ item.changed_at|date:"d.m.Y H:i" }} · {{ item.actor_label }}</span>
+                    </span>
                   </a>
                 {% endfor %}
               {% else %}
                 <div class="site-nav__alerts-empty">Новых уведомлений нет.</div>
               {% endif %}
             </div>
-          </div>
+          </aside>
         </div>
         <div class="flex items-center space-x-3 site-nav__user">
           <a href="{% url 'profile' %}" class="nav-link">Профиль</a>
@@ -333,6 +359,7 @@
 
       const toggle = alerts.querySelector("[data-alerts-toggle]");
       const panel = alerts.querySelector("[data-alerts-panel]");
+      const closeButton = alerts.querySelector("[data-alerts-close]");
       const header = alerts.querySelector("[data-alerts-header]");
       const markReadUrl = alerts.dataset.markReadUrl;
       if (!toggle || !panel) return;
@@ -393,12 +420,69 @@
         }
       };
 
+      const positionPanel = () => {
+        if (panel.hidden || window.innerWidth <= 640) {
+          panel.style.removeProperty("--alerts-left");
+          panel.style.removeProperty("--alerts-top");
+          panel.style.removeProperty("--alerts-max-height");
+          return;
+        }
+
+        const gutter = 16;
+        const gap = 12;
+        const toggleRect = toggle.getBoundingClientRect();
+        const panelRect = panel.getBoundingClientRect();
+        const nav = document.querySelector("[data-site-nav]");
+        const navRect = nav ? nav.getBoundingClientRect() : null;
+        const isSidebarLayout = Boolean(
+          navRect &&
+          window.innerWidth >= 1024 &&
+          navRect.left <= gutter &&
+          navRect.width >= 220
+        );
+
+        let left;
+        let top;
+
+        if (isSidebarLayout && navRect) {
+          left = navRect.right + gap;
+          top = toggleRect.top - 4;
+        } else {
+          left = toggleRect.right - panelRect.width;
+          top = toggleRect.bottom + gap;
+        }
+
+        if (left + panelRect.width > window.innerWidth - gutter) {
+          left = window.innerWidth - panelRect.width - gutter;
+        }
+        if (left < gutter) {
+          left = gutter;
+        }
+
+        const maxHeight = Math.max(260, window.innerHeight - gutter * 2);
+        if (top + panelRect.height > window.innerHeight - gutter) {
+          top = Math.max(gutter, window.innerHeight - panelRect.height - gutter);
+        }
+        if (top < gutter) {
+          top = gutter;
+        }
+
+        panel.style.setProperty("--alerts-left", `${Math.round(left)}px`);
+        panel.style.setProperty("--alerts-top", `${Math.round(top)}px`);
+        panel.style.setProperty("--alerts-max-height", `${Math.round(maxHeight)}px`);
+      };
+
       const setOpen = (isOpen) => {
         panel.hidden = !isOpen;
         alerts.classList.toggle("site-nav__alerts--open", isOpen);
         toggle.setAttribute("aria-expanded", isOpen ? "true" : "false");
         if (isOpen) {
+          requestAnimationFrame(positionPanel);
           void markRead();
+        } else {
+          panel.style.removeProperty("--alerts-left");
+          panel.style.removeProperty("--alerts-top");
+          panel.style.removeProperty("--alerts-max-height");
         }
       };
 
@@ -411,6 +495,13 @@
       alerts.querySelectorAll(".site-nav__alerts-item").forEach((item) => {
         item.addEventListener("click", () => setOpen(false));
       });
+
+      if (closeButton) {
+        closeButton.addEventListener("click", (event) => {
+          event.preventDefault();
+          setOpen(false);
+        });
+      }
 
       document.addEventListener("click", (event) => {
         if (!alerts.contains(event.target)) {
@@ -425,10 +516,17 @@
       });
 
       window.addEventListener("resize", () => {
-        if (window.innerWidth >= 640) {
-          setOpen(false);
+        if (!panel.hidden) {
+          positionPanel();
         }
       });
+
+      window.addEventListener("scroll", () => {
+        if (!panel.hidden) {
+          positionPanel();
+        }
+      }, { passive: true });
+
     })();
 
     (function () {

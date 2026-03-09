@@ -7,7 +7,7 @@ from django.urls import reverse
 
 from catalog.models import Course
 from syllabi.models import Syllabus
-from workflow.models import SyllabusStatusLog
+from workflow.services import change_status
 
 
 User = get_user_model()
@@ -73,9 +73,14 @@ class DashboardEncodingTests(TestCase):
 
 
 class DashboardNotificationsTests(TestCase):
-    def test_teacher_sees_notifications_from_own_status_logs(self):
+    def test_teacher_sees_only_own_notification(self):
         teacher = User.objects.create_user(
             username="teacher_notice",
+            password="pass1234",
+            role="teacher",
+        )
+        other_teacher = User.objects.create_user(
+            username="teacher_other_notice",
             password="pass1234",
             role="teacher",
         )
@@ -90,15 +95,9 @@ class DashboardNotificationsTests(TestCase):
             creator=teacher,
             semester="Fall 2026",
             academic_year="2026-2027",
-            status=Syllabus.Status.CORRECTION,
+            status=Syllabus.Status.REVIEW_UMU,
         )
-        SyllabusStatusLog.objects.create(
-            syllabus=syllabus,
-            from_status=Syllabus.Status.REVIEW_UMU,
-            to_status=Syllabus.Status.CORRECTION,
-            changed_by=reviewer,
-            comment="UNIQUE_NOTICE_MARKER",
-        )
+        change_status(reviewer, syllabus, Syllabus.Status.CORRECTION, "UNIQUE_NOTICE_MARKER")
 
         self.client.force_login(teacher)
         response = self.client.get(reverse("dashboard"))
@@ -108,6 +107,11 @@ class DashboardNotificationsTests(TestCase):
         notifications = response.context["sidebar_notifications"]
         self.assertTrue(any(item["syllabus_id"] == syllabus.id for item in notifications))
         self.assertTrue(any(item["body"] == "UNIQUE_NOTICE_MARKER" for item in notifications))
+
+        self.client.force_login(other_teacher)
+        other_response = self.client.get(reverse("dashboard"))
+        other_notifications = other_response.context["sidebar_notifications"]
+        self.assertFalse(any(item["body"] == "UNIQUE_NOTICE_MARKER" for item in other_notifications))
 
     def test_dean_sees_incoming_review_notifications(self):
         teacher = User.objects.create_user(
@@ -126,15 +130,9 @@ class DashboardNotificationsTests(TestCase):
             creator=teacher,
             semester="Spring 2026",
             academic_year="2025-2026",
-            status=Syllabus.Status.REVIEW_DEAN,
+            status=Syllabus.Status.AI_CHECK,
         )
-        SyllabusStatusLog.objects.create(
-            syllabus=syllabus,
-            from_status=Syllabus.Status.AI_CHECK,
-            to_status=Syllabus.Status.REVIEW_DEAN,
-            changed_by=teacher,
-            comment="READY_FOR_DEAN",
-        )
+        change_status(teacher, syllabus, Syllabus.Status.REVIEW_DEAN, "READY_FOR_DEAN")
 
         self.client.force_login(dean)
         response = self.client.get(reverse("dashboard"))
@@ -161,15 +159,9 @@ class DashboardNotificationsTests(TestCase):
             creator=teacher,
             semester="Fall 2026",
             academic_year="2026-2027",
-            status=Syllabus.Status.CORRECTION,
+            status=Syllabus.Status.REVIEW_DEAN,
         )
-        SyllabusStatusLog.objects.create(
-            syllabus=syllabus,
-            from_status=Syllabus.Status.REVIEW_DEAN,
-            to_status=Syllabus.Status.CORRECTION,
-            changed_by=reviewer,
-            comment="FIRST_NOTICE",
-        )
+        change_status(reviewer, syllabus, Syllabus.Status.CORRECTION, "FIRST_NOTICE")
 
         self.client.force_login(teacher)
         before_read = self.client.get(reverse("dashboard"))
@@ -182,15 +174,50 @@ class DashboardNotificationsTests(TestCase):
         after_read = self.client.get(reverse("dashboard"))
         self.assertEqual(after_read.context["sidebar_notifications_count"], 0)
 
-        SyllabusStatusLog.objects.create(
-            syllabus=syllabus,
-            from_status=Syllabus.Status.CORRECTION,
-            to_status=Syllabus.Status.REVIEW_DEAN,
-            changed_by=teacher,
-            comment="SECOND_NOTICE",
-        )
+        change_status(teacher, syllabus, Syllabus.Status.REVIEW_DEAN, "RESUBMITTED")
+        change_status(reviewer, syllabus, Syllabus.Status.CORRECTION, "SECOND_NOTICE")
         after_new_log = self.client.get(reverse("dashboard"))
         self.assertEqual(after_new_log.context["sidebar_notifications_count"], 1)
+
+    def test_mark_read_is_isolated_per_user(self):
+        teacher = User.objects.create_user(
+            username="teacher_isolated_notice",
+            password="pass1234",
+            role="teacher",
+        )
+        dean_one = User.objects.create_user(
+            username="dean_one_notice",
+            password="pass1234",
+            role="dean",
+        )
+        dean_two = User.objects.create_user(
+            username="dean_two_notice",
+            password="pass1234",
+            role="dean",
+        )
+        course = Course.objects.create(owner=teacher, code="CS909", available_languages="ru")
+        syllabus = Syllabus.objects.create(
+            course=course,
+            creator=teacher,
+            semester="Spring 2027",
+            academic_year="2026-2027",
+            status=Syllabus.Status.AI_CHECK,
+        )
+        change_status(teacher, syllabus, Syllabus.Status.REVIEW_DEAN, "READY_FOR_TWO_DEANS")
+
+        self.client.force_login(dean_one)
+        dean_one_before = self.client.get(reverse("dashboard"))
+        self.assertEqual(dean_one_before.context["sidebar_notifications_count"], 1)
+        self.client.post(reverse("notifications_mark_read"))
+        dean_one_after = self.client.get(reverse("dashboard"))
+        self.assertEqual(dean_one_after.context["sidebar_notifications_count"], 0)
+
+        self.client.force_login(dean_two)
+        dean_two_response = self.client.get(reverse("dashboard"))
+        self.assertEqual(dean_two_response.context["sidebar_notifications_count"], 1)
+        self.assertTrue(
+            any(item["body"] == "READY_FOR_TWO_DEANS" for item in dean_two_response.context["sidebar_notifications"])
+        )
 
     def test_mark_notifications_read_requires_authentication(self):
         response = self.client.post(reverse("notifications_mark_read"))

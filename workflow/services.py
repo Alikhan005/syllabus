@@ -6,6 +6,7 @@ from django.core.exceptions import PermissionDenied
 from django.core.mail import send_mail
 from django.db import transaction
 
+from core.notifications import create_notifications_for_status_log
 from syllabi.models import Syllabus
 
 from .models import SyllabusAuditLog, SyllabusStatusLog
@@ -196,7 +197,7 @@ def change_status(user, syllabus: Syllabus, new_status: str, comment: str = ""):
         syllabus.status = new_status
         syllabus.save(update_fields=["status"])
 
-        SyllabusStatusLog.objects.create(
+        status_log = SyllabusStatusLog.objects.create(
             syllabus=syllabus,
             from_status=old_status,
             to_status=new_status,
@@ -215,6 +216,11 @@ def change_status(user, syllabus: Syllabus, new_status: str, comment: str = ""):
                 else f"Returned for correction by {_reviewer_label(user)}"
             ),
         )
+
+    try:
+        create_notifications_for_status_log(status_log)
+    except Exception as exc:
+        logger.error("Notification record error: %s", exc)
 
     _notify_on_status_change(syllabus, new_status, comment)
 
@@ -256,7 +262,7 @@ def change_status_system(
         update_fields = ["status", *update_fields]
         syllabus.save(update_fields=update_fields)
 
-        SyllabusStatusLog.objects.create(
+        status_log = SyllabusStatusLog.objects.create(
             syllabus=syllabus,
             from_status=old_status,
             to_status=new_status,
@@ -274,6 +280,11 @@ def change_status_system(
                 or f"System status changed: {_status_label(old_status)} -> {_status_label(new_status)}"
             ),
         )
+
+    try:
+        create_notifications_for_status_log(status_log)
+    except Exception as exc:
+        logger.error("Notification record error: %s", exc)
 
     _notify_on_status_change(syllabus, new_status, comment)
     return syllabus

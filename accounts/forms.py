@@ -1,8 +1,8 @@
 from django import forms
+from django.contrib.auth import authenticate
 from django.contrib.auth import get_user_model
 from django.contrib.auth.forms import AuthenticationForm, PasswordResetForm, UserCreationForm
 from django.core.exceptions import ValidationError
-from django.contrib.auth import authenticate
 
 User = get_user_model()
 
@@ -127,7 +127,6 @@ class PasswordResetIdentifierForm(PasswordResetForm):
         ),
     )
 
-
     def clean_email(self):
         identifier = (self.cleaned_data.get("email") or "").strip()
         if not identifier:
@@ -144,21 +143,6 @@ class PasswordResetIdentifierForm(PasswordResetForm):
         if user:
             return user.email
         return identifier
-
-
-class EmailVerificationForm(forms.Form):
-    email = forms.EmailField(label="Email")
-    code = forms.CharField(label="Код подтверждения", max_length=6)
-
-    def clean_code(self):
-        code = (self.cleaned_data.get("code") or "").replace(" ", "").strip()
-        if not code.isdigit() or len(code) != 6:
-            raise ValidationError("Введите 6 цифр.")
-        return code
-
-
-class ResendEmailForm(forms.Form):
-    email = forms.EmailField(label="Email")
 
 
 class ProfileForm(forms.ModelForm):
