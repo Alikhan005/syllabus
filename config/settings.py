@@ -178,8 +178,9 @@ WSGI_APPLICATION = "config.wsgi.application"
 
 # База данных
 
+USE_DATABASE_URL = _env_bool("DJANGO_USE_DATABASE_URL", not DEBUG)
 DATABASE_URL = os.getenv("DATABASE_URL")
-if DATABASE_URL:
+if USE_DATABASE_URL and DATABASE_URL:
     DATABASES = {"default": _database_from_url(DATABASE_URL)}
 else:
     DB_ENGINE = os.getenv("DB_ENGINE", "django.db.backends.sqlite3")

@@ -11,7 +11,8 @@ from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
-from accounts.decorators import role_required
+from accounts.decorators import teacher_like_required
+from ai_checker.services import _missing_extractor_feedback
 from catalog.models import Topic
 from catalog.services import ensure_default_courses
 from workflow.models import SyllabusAuditLog, SyllabusStatusLog
@@ -177,6 +178,23 @@ def _resolve_correction_context(syllabus: Syllabus) -> dict:
     return context
 
 
+def _has_stale_ai_dependency_feedback(syllabus: Syllabus, correction_context: dict) -> bool:
+    if syllabus.status != Syllabus.Status.CORRECTION:
+        return False
+    if not correction_context.get("is_ai_feedback"):
+        return False
+
+    feedback = (syllabus.ai_feedback or "").lower()
+    if "requirements-ai.txt" not in feedback:
+        return False
+
+    file_name = getattr(syllabus.pdf_file, "name", "") or ""
+    if not file_name:
+        return False
+
+    return _missing_extractor_feedback(file_name) is None
+
+
 def _build_progress_context(status: str, correction_stage_key: str = "draft") -> dict:
     if status == Syllabus.Status.DRAFT:
         return {"width": 10, "bar_class": "bg-slate-400", "active_step": "draft"}
@@ -309,8 +327,9 @@ def syllabi_list(request):
 
 
 @login_required
-@role_required("teacher", "program_leader")
 def shared_syllabi_list(request):
+    if not request.user.can_view_shared_courses:
+        raise PermissionDenied("Нет доступа к общим силлабусам.")
     """Общие силлабусы (только утвержденные)."""
     base_qs = shared_syllabi_queryset(request.user).filter(status=Syllabus.Status.APPROVED).order_by("-updated_at")
 
@@ -364,7 +383,7 @@ def shared_syllabi_list(request):
 # =========================================================
 
 @login_required
-@role_required("teacher", "program_leader")
+@teacher_like_required
 def syllabus_create(request):
     """
     Backward-compatible create endpoint.
@@ -398,7 +417,7 @@ def syllabus_create(request):
 
 
 @login_required
-@role_required("teacher", "program_leader")
+@teacher_like_required
 def upload_pdf_view(request):
     """
     Сценарий: ИМПОРТ ФАЙЛА.
@@ -481,6 +500,10 @@ def syllabus_detail(request, pk):
         if syllabus.status == Syllabus.Status.CORRECTION
         else {"source_label": "", "comment": "", "stage_key": "draft", "is_ai_feedback": False}
     )
+    correction_has_stale_dependency_feedback = _has_stale_ai_dependency_feedback(
+        syllabus,
+        correction_context,
+    )
     progress_context = _build_progress_context(
         syllabus.status,
         correction_stage_key=correction_context.get("stage_key", "draft"),
@@ -509,6 +532,7 @@ def syllabus_detail(request, pk):
             "correction_source_label": correction_context.get("source_label", ""),
             "correction_comment": correction_context.get("comment", ""),
             "correction_is_ai_feedback": correction_context.get("is_ai_feedback", False),
+            "correction_has_stale_dependency_feedback": correction_has_stale_dependency_feedback,
             "status_progress_width": progress_context["width"],
             "status_progress_class": progress_context["bar_class"],
             "status_progress_step": progress_context["active_step"],
@@ -518,7 +542,7 @@ def syllabus_detail(request, pk):
 
 
 @login_required
-@role_required("teacher", "program_leader")
+@teacher_like_required
 def syllabus_edit_topics(request, pk):
     syllabus = get_object_or_404(Syllabus.objects.select_related("course", "creator"), pk=pk)
     if request.user != syllabus.creator:
@@ -627,7 +651,7 @@ def syllabus_edit_topics(request, pk):
 
 
 @login_required
-@role_required("teacher", "program_leader")
+@teacher_like_required
 def syllabus_edit_details(request, pk):
     syllabus = get_object_or_404(Syllabus.objects.select_related("course", "creator"), pk=pk)
     if request.user != syllabus.creator:
@@ -762,21 +786,21 @@ def syllabus_upload_file(request, pk):
             syllabus=syllabus,
             changed_by=request.user,
             version_number=syllabus.version_number,
-            note="Загружен новый PDF (авто-проверка)",
+            note="Загружен новый файл (авто-проверка)",
         )
         SyllabusAuditLog.objects.create(
             syllabus=syllabus,
             actor=request.user,
             action=SyllabusAuditLog.Action.PDF_UPLOADED,
             metadata={"filename": uploaded.name},
-            message="Загружен PDF",
+            message="Загружен файл силлабуса",
         )
 
     return redirect("syllabus_detail", pk=pk)
 
 
 @login_required
-@role_required("teacher", "program_leader")
+@teacher_like_required
 def syllabus_toggle_share(request, pk):
     syllabus = get_object_or_404(Syllabus, pk=pk)
     if request.user != syllabus.creator:

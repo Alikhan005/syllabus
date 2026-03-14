@@ -57,7 +57,7 @@ class SyllabusForm(forms.ModelForm):
         
         if user:
             # Фильтрация курсов: Админ видит всё, Препод — только свои
-            if getattr(user, "role", None) in ["admin", "dean", "umu"] or user.is_superuser:
+            if getattr(user, "role", None) == "admin" or user.is_superuser:
                 self.fields["course"].queryset = Course.objects.all()
             else:
                 self.fields["course"].queryset = user.courses.all()

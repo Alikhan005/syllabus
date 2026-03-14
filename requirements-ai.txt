@@ -1,7 +1,6 @@
 -r requirements.txt
 
-# AI / NLP / document extraction
+# AI / document extraction needed for PDF/DOCX syllabus checks.
 httpx==0.28.1
-llama-cpp-python
 markitdown[pdf]==0.1.4
 pypdf==5.1.0

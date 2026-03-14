@@ -23,9 +23,10 @@
       <td class="p-2 text-right space-x-3 responsive-table__actions" data-label="Действия">
         <a href="{% url 'course_detail' course.pk %}" class="link">Открыть</a>
         {% if user != course.owner and user.can_edit_content %}
-          <a href="{% url 'course_fork' course.pk %}" class="link">
-            Взять как основу
-          </a>
+          <form method="post" action="{% url 'course_fork' course.pk %}" class="inline">
+            {% csrf_token %}
+            <button type="submit" class="link">Взять как основу</button>
+          </form>
         {% endif %}
       </td>
     </tr>

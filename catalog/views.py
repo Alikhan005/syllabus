@@ -1,22 +1,37 @@
+﻿from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
+from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
+from django.views.decorators.http import require_POST
 
-from accounts.decorators import role_required
+from accounts.decorators import content_editor_required
 from .forms import CourseForm, TopicForm, TopicLiteratureFormSet, TopicQuestionFormSet
 from .models import Course, Topic, TopicLiterature, TopicQuestion
 
 
+def _build_fork_code(user, source_code: str) -> str:
+    base_code = f"{source_code}_copy"
+    candidate = base_code
+    suffix = 2
+
+    while Course.objects.filter(owner=user, code=candidate).exists():
+        candidate = f"{base_code}_{suffix}"
+        suffix += 1
+
+    return candidate
+
+
 @login_required
-@role_required("teacher", "program_leader")
+@content_editor_required
 def courses_list(request):
     courses = Course.objects.filter(owner=request.user)
     return render(request, "catalog/courses_list.html", {"courses": courses})
 
 
 @login_required
-@role_required("teacher", "program_leader")
+@content_editor_required
 def course_create(request):
     if request.method == "POST":
         form = CourseForm(request.POST)
@@ -31,7 +46,7 @@ def course_create(request):
 
 
 @login_required
-@role_required("teacher", "program_leader")
+@content_editor_required
 def course_edit(request, pk):
     course = get_object_or_404(Course, pk=pk, owner=request.user)
     if request.method == "POST":
@@ -51,20 +66,20 @@ def course_detail(request, pk):
         Course.objects.prefetch_related("topics__literature", "topics__questions"),
         pk=pk,
     )
-    privileged_roles = {"dean", "umu", "admin"}
     if (
         course.owner != request.user
         and not course.is_shared
-        and request.user.role not in privileged_roles
+        and not request.user.is_admin_like
+        and request.user.role != "umu"
         and not request.user.is_superuser
     ):
-        raise PermissionDenied("Нет доступа к этому курсу.")
+        raise PermissionDenied("Доступ к этому курсу запрещен.")
     topics = course.topics.order_by("order_index")
     return render(request, "catalog/course_detail.html", {"course": course, "topics": topics})
 
 
 @login_required
-@role_required("teacher", "program_leader")
+@content_editor_required
 def topic_create(request, course_pk):
     course = get_object_or_404(Course, pk=course_pk, owner=request.user)
     if request.method == "POST":
@@ -100,7 +115,7 @@ def topic_create(request, course_pk):
 
 
 @login_required
-@role_required("teacher", "program_leader")
+@content_editor_required
 def topic_edit(request, course_pk, pk):
     course = get_object_or_404(Course, pk=course_pk, owner=request.user)
     topic = get_object_or_404(Topic, pk=pk, course=course)
@@ -131,21 +146,45 @@ def topic_edit(request, course_pk, pk):
 
 
 @login_required
-@role_required("teacher", "program_leader")
 def shared_courses_list(request):
+    if not request.user.can_view_shared_courses:
+        raise PermissionDenied("У вас нет доступа к общим шаблонам курсов.")
+
+    query = (request.GET.get("q") or "").strip()
     courses = Course.objects.filter(is_shared=True).select_related("owner")
-    return render(request, "catalog/shared_courses_list.html", {"courses": courses})
+
+    if query:
+        courses = courses.filter(
+            Q(code__icontains=query)
+            | Q(title_ru__icontains=query)
+            | Q(title_kz__icontains=query)
+            | Q(title_en__icontains=query)
+            | Q(owner__username__icontains=query)
+            | Q(owner__first_name__icontains=query)
+            | Q(owner__last_name__icontains=query)
+        )
+
+    courses = courses.order_by("owner__last_name", "owner__first_name", "code")
+    return render(
+        request,
+        "catalog/shared_courses_list.html",
+        {"courses": courses, "search_query": query},
+    )
 
 
 @login_required
-@role_required("teacher", "program_leader")
+@content_editor_required
 @transaction.atomic
+@require_POST
 def course_fork(request, pk):
+    if not request.user.can_view_shared_courses:
+        raise PermissionDenied("У вас нет доступа к шаблонам курсов.")
+
     source = get_object_or_404(Course, pk=pk, is_shared=True)
 
     new_course = Course.objects.create(
         owner=request.user,
-        code=f"{source.code}_copy",
+        code=_build_fork_code(request.user, source.code),
         title_ru=source.title_ru,
         title_kz=source.title_kz,
         title_en=source.title_en,
@@ -188,4 +227,9 @@ def course_fork(request, pk):
                 question_en=q.question_en,
             )
 
+    source_title = source.display_title or source.code
+    messages.success(
+        request,
+        f'Шаблон "{source_title}" скопирован в раздел "Мои курсы". Сейчас открыта ваша личная копия.',
+    )
     return redirect("course_detail", pk=new_course.pk)

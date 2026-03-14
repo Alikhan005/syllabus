@@ -1,6 +1,9 @@
 from django.conf import settings
 from django.db import models
+
 from catalog.models import Course, Topic
+
+DEFAULT_STUDY_WEEKS = 12
 
 
 class Syllabus(models.Model):
@@ -10,7 +13,6 @@ class Syllabus(models.Model):
         ("en", "English"),
     ]
 
-    # Статусы согласования
     class Status(models.TextChoices):
         DRAFT = "draft", "Черновик"
         AI_CHECK = "ai_check", "На проверке ИИ"
@@ -38,48 +40,51 @@ class Syllabus(models.Model):
         return cls.LEGACY_STATUS_MAP.get(value, value)
 
     course = models.ForeignKey(
-        Course, 
-        on_delete=models.CASCADE, 
+        Course,
+        on_delete=models.CASCADE,
         related_name="syllabi",
-        verbose_name="Дисциплина"
+        verbose_name="Дисциплина",
     )
     creator = models.ForeignKey(
-        settings.AUTH_USER_MODEL, 
-        on_delete=models.CASCADE, 
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
         related_name="syllabi",
-        verbose_name="Создатель"
+        verbose_name="Создатель",
     )
-    semester = models.CharField("Семестр", max_length=50)  # например, Fall 2025
-    academic_year = models.CharField("Учебный год", max_length=20)  # например, 2025-2026
-    
+    semester = models.CharField("Семестр", max_length=50)
+    academic_year = models.CharField("Учебный год", max_length=20)
+
     status = models.CharField(
-        "Статус", 
-        max_length=32, 
-        choices=Status.choices, 
-        default=Status.DRAFT
-    )
-    
-    total_weeks = models.PositiveIntegerField("Количество недель", default=15)
-    main_language = models.CharField(
-        "Язык силлабуса", 
-        max_length=5, 
-        choices=LANG_CHOICES, 
-        default="ru"
+        "Статус",
+        max_length=32,
+        choices=Status.choices,
+        default=Status.DRAFT,
     )
 
-    # ВАЖНО: blank=True, null=True позволяют создавать силлабус без файла (Конструктор)
+    total_weeks = models.PositiveIntegerField("Количество недель", default=DEFAULT_STUDY_WEEKS)
+    main_language = models.CharField(
+        "Язык силлабуса",
+        max_length=5,
+        choices=LANG_CHOICES,
+        default="ru",
+    )
+
+    # Важно: blank=True и null=True позволяют создавать силлабус без файла.
     pdf_file = models.FileField(
-        "Файл силлабуса", 
-        upload_to="syllabi_pdfs/", 
-        blank=True, 
-        null=True
+        "Файл силлабуса",
+        upload_to="syllabi_pdfs/",
+        blank=True,
+        null=True,
     )
     is_shared = models.BooleanField("Доступен другим?", default=False)
     version_number = models.PositiveIntegerField("Версия", default=1)
 
-    ai_feedback = models.TextField("Отчет ИИ", blank=True, help_text="Замечания от автоматической проверки")
+    ai_feedback = models.TextField(
+        "Отчет ИИ",
+        blank=True,
+        help_text="Замечания от автоматической проверки",
+    )
 
-    # --- Детальные поля (заполняются или парсятся) ---
     credits_ects = models.CharField("Кредиты (ECTS)", max_length=20, blank=True)
     total_hours = models.PositiveIntegerField("Всего часов", blank=True, null=True)
     contact_hours = models.PositiveIntegerField("Аудиторные часы", blank=True, null=True)
@@ -118,10 +123,10 @@ class Syllabus(models.Model):
 
     def __str__(self):
         return f"{self.course.code} | {self.semester} | {self.get_status_display()}"
-    
+
     @property
     def is_editable(self):
-        """Можно редактировать только в статусе Черновик или На доработке."""
+        """Редактирование доступно в статусах Черновик и На доработке."""
         return self.status in [self.Status.DRAFT, self.Status.CORRECTION]
 
 
@@ -147,9 +152,8 @@ class SyllabusTopic(models.Model):
     def get_title(self):
         if self.custom_title:
             return self.custom_title
-        # Безопасное получение названия, если у Topic есть метод get_title
-        if hasattr(self.topic, 'get_title'):
-             return self.topic.get_title(self.syllabus.main_language)
+        if hasattr(self.topic, "get_title"):
+            return self.topic.get_title(self.syllabus.main_language)
         return str(self.topic)
 
 

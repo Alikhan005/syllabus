@@ -25,7 +25,7 @@
       <span class="dashboard-chip">Общие курсы: {{ shared_courses_count|default:"0" }}</span>
     {% endif %}
     <span class="dashboard-chip">Силлабусы: {{ syllabi_count|default:"0" }}</span>
-    {% if user.role == "teacher" or user.role == "program_leader" %}
+    {% if user.can_view_shared_courses %}
       <span class="dashboard-chip">Общие силлабусы: {{ shared_syllabi_count|default:"0" }}</span>
     {% endif %}
   </div>

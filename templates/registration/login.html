@@ -16,13 +16,13 @@
   <div class="card auth-card auth-card--compact">
     <div class="auth-card__brand">AlmaU Syllabus</div>
     <h1 class="text-2xl font-semibold mb-4">Вход в систему AlmaU Syllabus</h1>
-    <form method="post" class="space-y-4">
+    <form method="post" class="auth-form space-y-4">
       {% csrf_token %}
       {% if next %}
         <input type="hidden" name="next" value="{{ next }}">
       {% endif %}
       {{ form.as_p }}
-      <button class="btn-primary w-full text-center">Войти</button>
+      <button type="submit" class="btn-primary w-full text-center">Войти</button>
     </form>
     <p class="text-sm text-gray-600 mt-4 text-center">
       Нет аккаунта?

@@ -1,4 +1,4 @@
-{% load static %}
+﻿{% load static %}
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -13,7 +13,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
   <script src="https://unpkg.com/htmx.org@2.0.0"></script>
   <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="stylesheet" href="{% static 'css/style.css' %}?v=21">
+  <link rel="stylesheet" href="{% static 'css/style.css' %}?v=23">
 </head>
 <body class="bg-slate-100 text-slate-800 {% block body_class %}{% endblock %}">
   {% if user.is_authenticated and not hide_nav %}
@@ -21,7 +21,7 @@
   <nav class="site-nav" data-site-nav>
     <div class="site-nav__inner">
       <div class="flex items-center space-x-3 site-nav__brand">
-        <img src="{% static 'img/logo.png' %}" alt="AlmaU" class="h-8 w-auto">
+        <img src="{% static 'img/logo-syllabus.svg' %}?v=1" alt="AlmaU Syllabus" class="h-9 w-auto">
         {% if user.is_authenticated %}
           <a href="{% url 'dashboard' %}" class="font-semibold link">AlmaU Syllabus</a>
         {% else %}
@@ -49,7 +49,7 @@
               <a href="{% url 'shared_courses_list' %}" class="nav-link">Общие курсы</a>
             {% endif %}
             <a href="{% url 'syllabi_list' %}" class="nav-link">Силлабусы</a>
-            {% if user.role == "teacher" or user.role == "program_leader" %}
+            {% if user.can_view_shared_courses %}
               <a href="{% url 'shared_syllabi_list' %}" class="nav-link">Общие силлабусы</a>
             {% endif %}
           </div>
@@ -110,7 +110,7 @@
                     {% if item.body %}
                       <span class="site-nav__alerts-item-body">{{ item.body }}</span>
                     {% endif %}
-                    <span class="site-nav__alerts-item-meta">{{ item.changed_at|date:"d.m.Y H:i" }} · {{ item.actor_label }}</span>
+                    <span class="site-nav__alerts-item-meta">{{ item.changed_at|date:"d.m.Y H:i" }} В· {{ item.actor_label }}</span>
                     </span>
                   </a>
                 {% endfor %}
@@ -552,3 +552,4 @@
 
   </body>
 </html>
+

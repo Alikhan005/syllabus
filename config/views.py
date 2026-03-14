@@ -15,7 +15,7 @@ from workflow.models import SyllabusStatusLog
 
 
 def _can_manage_announcements(user) -> bool:
-    return user.role in ["dean", "umu"]
+    return bool(getattr(user, "can_manage_announcements", False))
 
 
 def _reviewer_label_from_status_log(status_log: SyllabusStatusLog | None) -> str:
@@ -74,7 +74,7 @@ def _build_dashboard_context(request, announcement_form=None):
             .order_by("-updated_at")[:10]
         )
 
-    if role in ["teacher", "program_leader"]:
+    if getattr(request.user, "is_teacher_like", False):
         correction_logs_qs = (
             SyllabusStatusLog.objects.filter(to_status=Syllabus.Status.CORRECTION)
             .select_related("changed_by")

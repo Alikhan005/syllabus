@@ -185,7 +185,7 @@ def _resolve_model_path() -> str:
 def get_model_name() -> str:
     if _use_remote():
         config = _remote_config()
-        return config["model"] if config else "remote"
+        return config["model"] if config else "remote-not-configured"
     model_path = _resolve_model_path()
     return Path(model_path).name if model_path else "unknown"
 
@@ -196,6 +196,11 @@ def warmup_llm() -> str:
     Returns selected model/provider name.
     """
     if _use_remote():
+        if _remote_config() is None:
+            raise RuntimeError(
+                "Remote LLM mode is selected but not configured. "
+                "Set LLM_API_KEY or OPENAI_API_KEY."
+            )
         return get_model_name()
     get_llm()
     return get_model_name()

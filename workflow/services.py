@@ -39,7 +39,7 @@ def _status_label(status: str) -> str:
 def _collect_role_emails(role_key: str) -> list[str]:
     """Collect active user emails by role key (e.g. dean, umu)."""
     qs = User.objects.filter(is_active=True, role=role_key).exclude(email="")
-    emails = list(qs.values_list("email", flat=True))
+    emails = list(qs.values_list("email", flat=True).distinct())
 
     if not emails:
         logger.warning("No active users with role '%s' were found for notifications.", role_key)
@@ -94,16 +94,25 @@ def _notify_on_status_change(syllabus: Syllabus, new_status: str, comment: str =
         elif new_status == Syllabus.Status.APPROVED:
             if syllabus.creator.email:
                 recipients = [syllabus.creator.email]
-                subject = f"Силлабус утверждён: {syllabus.course.code}"
-                message = f"Ваш силлабус по курсу {syllabus.course.code} официально утверждён."
+                subject = f"Силлабус утвержден: {syllabus.course.code}"
+                message = f"Ваш силлабус по курсу {syllabus.course.code} официально утвержден."
 
         elif new_status == Syllabus.Status.CORRECTION:
             if syllabus.creator.email:
                 recipients = [syllabus.creator.email]
-                subject = f"Силлабус возвращён на доработку: {syllabus.course.code}"
+                subject = f"Силлабус возвращен на доработку: {syllabus.course.code}"
                 message = (
-                    "Ваш силлабус возвращён на доработку.\n\n"
+                    "Ваш силлабус возвращен на доработку.\n\n"
                     f"Комментарий:\n{comment}"
+                )
+
+        elif new_status == Syllabus.Status.REJECTED:
+            if syllabus.creator.email:
+                recipients = [syllabus.creator.email]
+                subject = f"Силлабус отклонен: {syllabus.course.code}"
+                message = (
+                    "Ваш силлабус отклонен и переведен в архивный статус.\n\n"
+                    f"Комментарий:\n{comment or 'Без дополнительного комментария.'}"
                 )
 
         if recipients:
@@ -191,7 +200,7 @@ def change_status(user, syllabus: Syllabus, new_status: str, comment: str = ""):
         if not comment:
             raise ValueError("При отклонении нужен комментарий.")
     else:
-        raise PermissionDenied("Ручной переход в этот статус запрещён.")
+        raise PermissionDenied("Ручной переход в этот статус запрещен.")
 
     with transaction.atomic():
         syllabus.status = new_status

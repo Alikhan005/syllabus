@@ -1,7 +1,7 @@
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 
-from core.models import Notification
+from core.models import Notification, NotificationState
 from syllabi.models import Syllabus
 
 User = get_user_model()
@@ -32,14 +32,14 @@ def notification_title(status_log) -> str:
     if status_to == Syllabus.Status.REVIEW_UMU:
         return f"{course_code}: отправлен на согласование в УМУ"
     if status_to == Syllabus.Status.CORRECTION:
-        return f"{course_code}: возвращён на доработку"
+        return f"{course_code}: возвращен на доработку"
     if status_to == Syllabus.Status.APPROVED:
-        return f"{course_code}: силлабус утверждён"
+        return f"{course_code}: силлабус утвержден"
     if status_to == Syllabus.Status.REJECTED:
-        return f"{course_code}: силлабус отклонён"
+        return f"{course_code}: силлабус отклонен"
     if status_to == Syllabus.Status.AI_CHECK:
-        return f"{course_code}: отправлен на проверку ИИ"
-    return f"{course_code}: статус обновлён"
+        return f"{course_code}: отправлен на AI-проверку"
+    return f"{course_code}: статус обновлен"
 
 
 def notification_body(status_log) -> str:
@@ -49,7 +49,7 @@ def notification_body(status_log) -> str:
 
     from_label = status_log.from_status_label
     to_label = status_log.to_status_label
-    return f"Статус изменён: {from_label} -> {to_label}"
+    return f"Статус изменен: {from_label} -> {to_label}"
 
 
 def _active_role_users(role_key: str):
@@ -152,5 +152,13 @@ def latest_notification_changed_at(user):
 
 
 def mark_notifications_read(user) -> int:
+    if not getattr(user, "is_authenticated", False):
+        return 0
+
     now = timezone.now()
-    return notifications_queryset(user).filter(read_at__isnull=True).update(read_at=now)
+    updated = notifications_queryset(user).filter(read_at__isnull=True).update(read_at=now)
+    NotificationState.objects.update_or_create(
+        user=user,
+        defaults={"last_seen_at": now},
+    )
+    return updated

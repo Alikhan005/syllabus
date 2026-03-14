@@ -7,11 +7,420 @@ from ai_checker.models import AiCheckResult
 from catalog.models import Course, Topic, TopicLiterature, TopicQuestion
 from core.models import Announcement
 from syllabi.models import Syllabus, SyllabusRevision, SyllabusTopic
-from workflow.services import change_status
+
+
+DEMO_PASSWORD = "Demo12345!"
+DEMO_STUDY_WEEKS = 12
+
+USER_SPECS = [
+    {
+        "username": "admin_demo",
+        "email": "admin_demo@almau.local",
+        "first_name": "Admin",
+        "last_name": "Demo",
+        "role": "admin",
+        "is_superuser": True,
+        "is_staff": True,
+        "can_teach": False,
+    },
+    {
+        "username": "teacher_demo",
+        "email": "teacher_demo@almau.local",
+        "first_name": "Alikhan",
+        "last_name": "Saparov",
+        "role": "teacher",
+        "is_superuser": False,
+        "is_staff": False,
+        "can_teach": False,
+    },
+    {
+        "username": "program_leader_demo",
+        "email": "pl_demo@almau.local",
+        "first_name": "Aigerim",
+        "last_name": "Tulegen",
+        "role": "program_leader",
+        "is_superuser": False,
+        "is_staff": False,
+        "can_teach": False,
+    },
+    {
+        "username": "dean_demo",
+        "email": "dean_demo@almau.local",
+        "first_name": "Bolat",
+        "last_name": "Nurtay",
+        "role": "dean",
+        "is_superuser": False,
+        "is_staff": False,
+        "can_teach": False,
+    },
+    {
+        "username": "umu_demo",
+        "email": "umu_demo@almau.local",
+        "first_name": "Dana",
+        "last_name": "Bekova",
+        "role": "umu",
+        "is_superuser": False,
+        "is_staff": False,
+        "can_teach": False,
+    },
+]
+
+COURSE_SPECS = [
+    {
+        "key": "cs101",
+        "code": "CS101",
+        "owner": "teacher_demo",
+        "is_shared": False,
+        "title_ru": "Основы программирования",
+        "title_kz": "Бағдарламалауға кіріспе",
+        "title_en": "Introduction to Programming",
+        "description_ru": (
+            "Курс формирует базовые навыки алгоритмизации, разработки программ, "
+            "работы с типами данных, условиями, циклами, функциями и файлами."
+        ),
+        "description_kz": (
+            "Пән алгоритмдеу, бағдарламалау, дерек түрлері, шарттар, циклдер, "
+            "функциялар және файлдармен жұмыс бойынша базалық дағдыларды қалыптастырады."
+        ),
+        "description_en": (
+            "The course covers core programming concepts, including data types, "
+            "conditions, loops, functions, and file processing."
+        ),
+    },
+    {
+        "key": "it102",
+        "code": "IT102",
+        "owner": "teacher_demo",
+        "is_shared": True,
+        "title_ru": "Информационные технологии",
+        "title_kz": "Ақпараттық технологиялар",
+        "title_en": "Information Technologies",
+        "description_ru": (
+            "Курс формирует понимание цифровой инфраструктуры, сетей, облачных "
+            "сервисов, баз данных и основ кибербезопасности."
+        ),
+        "description_kz": (
+            "Пән цифрлық инфрақұрылым, желілер, бұлтты сервистер, дерекқорлар "
+            "және киберқауіпсіздік негіздерін түсіндіреді."
+        ),
+        "description_en": (
+            "The course introduces digital infrastructure, networks, cloud "
+            "services, databases, and cybersecurity fundamentals."
+        ),
+    },
+    {
+        "key": "math101",
+        "code": "MATH101",
+        "owner": "teacher_demo",
+        "is_shared": False,
+        "title_ru": "Высшая математика",
+        "title_kz": "Жоғары математика",
+        "title_en": "Higher Mathematics",
+        "description_ru": (
+            "Курс охватывает функции, пределы, производные, интегралы, элементы "
+            "линейной алгебры и их применение в прикладных задачах."
+        ),
+        "description_kz": (
+            "Пән функциялар, шектер, туындылар, интегралдар, сызықтық алгебра "
+            "элементтері және олардың қолданылуын қамтиды."
+        ),
+        "description_en": (
+            "The course covers functions, limits, derivatives, integrals, and "
+            "introductory linear algebra with applied examples."
+        ),
+    },
+]
+
+TOPIC_SPECS = {
+    "cs101": [
+        "Введение в программирование и алгоритмы",
+        "Переменные и типы данных",
+        "Арифметические и логические операции",
+        "Условные конструкции",
+        "Циклы и итерации",
+        "Функции и параметры",
+        "Область видимости и возврат значений",
+        "Списки и кортежи",
+        "Словари и множества",
+        "Строки и обработка текста",
+        "Работа с файлами",
+        "Обработка ошибок и исключений",
+        "Модули и повторное использование кода",
+        "Основы объектно-ориентированного программирования",
+        "Мини-проект и итоговое повторение",
+    ],
+    "it102": [
+        "Роль информационных технологий в университете и бизнесе",
+        "Аппаратное обеспечение компьютера",
+        "Операционные системы и файловые структуры",
+        "Офисные приложения и совместная работа",
+        "Облачные сервисы и хранение данных",
+        "Компьютерные сети и интернет",
+        "Веб-технологии и браузеры",
+        "Основы баз данных",
+        "Цифровые коммуникации и корпоративные платформы",
+        "Информационная безопасность",
+        "Управление доступом и защита данных",
+        "Цифровая этика и академическая добросовестность",
+        "Аналитика данных и визуализация",
+        "Искусственный интеллект в образовательной среде",
+        "Цифровая трансформация организаций",
+    ],
+    "math101": [
+        "Функции и их графики",
+        "Предел функции",
+        "Непрерывность функции",
+        "Производная и правила дифференцирования",
+        "Производная сложной функции",
+        "Применение производной к исследованию функции",
+        "Экстремумы и оптимизация",
+        "Неопределенный интеграл",
+        "Методы интегрирования",
+        "Определенный интеграл",
+        "Применение интеграла",
+        "Матрицы и операции над ними",
+        "Определители",
+        "Системы линейных уравнений",
+        "Векторы и элементы аналитической геометрии",
+    ],
+}
+
+SYLLABUS_SPECS = [
+    {
+        "course_key": "cs101",
+        "creator": "teacher_demo",
+        "semester": "Fall 2025",
+        "academic_year": "2025-2026",
+        "status": Syllabus.Status.DRAFT,
+        "version_number": 1,
+        "is_shared": False,
+    },
+    {
+        "course_key": "cs101",
+        "creator": "teacher_demo",
+        "semester": "Spring 2026",
+        "academic_year": "2025-2026",
+        "status": Syllabus.Status.AI_CHECK,
+        "version_number": 2,
+        "is_shared": False,
+    },
+    {
+        "course_key": "it102",
+        "creator": "teacher_demo",
+        "semester": "Fall 2025",
+        "academic_year": "2025-2026",
+        "status": Syllabus.Status.REVIEW_DEAN,
+        "version_number": 1,
+        "is_shared": False,
+    },
+    {
+        "course_key": "math101",
+        "creator": "teacher_demo",
+        "semester": "Fall 2025",
+        "academic_year": "2025-2026",
+        "status": Syllabus.Status.REVIEW_UMU,
+        "version_number": 1,
+        "is_shared": False,
+    },
+    {
+        "course_key": "cs101",
+        "creator": "teacher_demo",
+        "semester": "Fall 2026",
+        "academic_year": "2026-2027",
+        "status": Syllabus.Status.APPROVED,
+        "version_number": 3,
+        "is_shared": True,
+    },
+]
+
+SYLLABUS_CONTENT = {
+    "cs101": {
+        "course_goal": (
+            "Сформировать у студентов базовые компетенции в области "
+            "программирования и алгоритмического мышления."
+        ),
+        "learning_outcomes": "\n".join(
+            [
+                "1. Объяснять базовые принципы алгоритмизации и программирования.",
+                "2. Использовать переменные, условия, циклы и функции при решении задач.",
+                "3. Работать с основными структурами данных.",
+                "4. Создавать простые программы для обработки пользовательского ввода и файлов.",
+                "5. Анализировать код, находить и исправлять типовые ошибки.",
+            ]
+        ),
+        "teaching_methods": (
+            "Лекции, практические занятия, разбор кода, мини-кейсы, "
+            "самостоятельные задания и консультации."
+        ),
+        "teaching_philosophy": (
+            "Обучение строится от простого к сложному с акцентом на практику "
+            "и регулярную обратную связь."
+        ),
+        "course_policy": (
+            "Студент обязан регулярно посещать занятия, выполнять практические "
+            "задания и соблюдать сроки сдачи работ."
+        ),
+        "academic_integrity_policy": (
+            "Плагиат, списывание и использование чужого кода без ссылки "
+            "запрещены и рассматриваются как нарушение академической честности."
+        ),
+        "inclusive_policy": (
+            "Курс поддерживает уважительную и инклюзивную среду. При наличии "
+            "индивидуальных образовательных потребностей студент может обратиться "
+            "к преподавателю за адаптацией формата работы."
+        ),
+        "assessment_policy": (
+            "Текущий контроль включает практические задания, короткие тесты "
+            "и рубежные проверки. Итоговая оценка формируется на основе "
+            "накопленных баллов и итогового задания."
+        ),
+        "grading_scale": "\n".join(
+            [
+                "Практические задания - 30%",
+                "Квизы и короткие тесты - 20%",
+                "Рубежный контроль - 20%",
+                "Итоговый проект или экзамен - 30%",
+            ]
+        ),
+        "main_literature": "\n".join(
+            [
+                "1. Python Software Foundation. Python Documentation. 2025.",
+                "2. Matthes E. Python Crash Course. 3rd edition. 2023.",
+                "3. Nelli F. Python Data Analytics. 3rd edition. 2024.",
+            ]
+        ),
+        "additional_literature": "\n".join(
+            [
+                "1. Real Python Team. Real Python Tutorials Collection. 2025.",
+                "2. Jupyter Project. Jupyter Documentation. 2025.",
+            ]
+        ),
+    },
+    "it102": {
+        "course_goal": (
+            "Сформировать системное представление об информационных технологиях "
+            "и навыки безопасного использования цифровых инструментов."
+        ),
+        "learning_outcomes": "\n".join(
+            [
+                "1. Различать ключевые компоненты ИТ-инфраструктуры.",
+                "2. Использовать базовые цифровые инструменты для учебных задач.",
+                "3. Объяснять назначение сетей, облачных сервисов и баз данных.",
+                "4. Применять базовые принципы информационной безопасности.",
+                "5. Анализировать роль цифровой трансформации организаций.",
+            ]
+        ),
+        "teaching_methods": (
+            "Лекции, демонстрации, практические задания, кейс-анализ и работа "
+            "с цифровыми сервисами."
+        ),
+        "teaching_philosophy": (
+            "Курс ориентирован на прикладное использование технологий и развитие "
+            "цифровой ответственности."
+        ),
+        "course_policy": (
+            "Студент обязан участвовать в практических заданиях, соблюдать "
+            "цифровую этику и выполнять задания в установленные сроки."
+        ),
+        "academic_integrity_policy": (
+            "Запрещается выдавать чужие цифровые работы за свои, подделывать "
+            "результаты и нарушать правила использования информационных ресурсов."
+        ),
+        "inclusive_policy": (
+            "На занятиях обеспечивается уважительная и безопасная среда для "
+            "всех обучающихся вне зависимости от стартового уровня."
+        ),
+        "assessment_policy": (
+            "Оценивание строится на основе практических заданий, тестов, "
+            "групповых активностей и итоговой презентации."
+        ),
+        "grading_scale": "\n".join(
+            [
+                "Практические задания - 35%",
+                "Квизы - 15%",
+                "Рубежный контроль - 20%",
+                "Итоговая презентация или экзамен - 30%",
+            ]
+        ),
+        "main_literature": "\n".join(
+            [
+                "1. NIST. Cybersecurity Framework 2.0. 2024.",
+                "2. Microsoft Learn. Security, Compliance, and Identity Fundamentals. 2024.",
+                "3. PostgreSQL Global Development Group. PostgreSQL Documentation. 2025.",
+            ]
+        ),
+        "additional_literature": "\n".join(
+            [
+                "1. Cisco Networking Academy Materials. 2025.",
+                "2. Google Workspace Learning Center. 2025.",
+            ]
+        ),
+    },
+    "math101": {
+        "course_goal": (
+            "Сформировать фундаментальные знания и навыки применения "
+            "математического аппарата в прикладных задачах."
+        ),
+        "learning_outcomes": "\n".join(
+            [
+                "1. Вычислять пределы и производные стандартных функций.",
+                "2. Применять производную для исследования функций.",
+                "3. Вычислять неопределенные и определенные интегралы.",
+                "4. Решать базовые задачи линейной алгебры.",
+                "5. Использовать математические методы в прикладных задачах.",
+            ]
+        ),
+        "teaching_methods": (
+            "Лекции, практические занятия, решение задач, самостоятельная "
+            "работа и консультации."
+        ),
+        "teaching_philosophy": (
+            "Курс строится на системности, логической последовательности и "
+            "регулярной практике решения задач."
+        ),
+        "course_policy": (
+            "Студент обязан регулярно посещать занятия, решать практические "
+            "задания и участвовать в рубежных проверках."
+        ),
+        "academic_integrity_policy": (
+            "Списывание и использование готовых решений без понимания метода "
+            "решения считаются нарушением академической честности."
+        ),
+        "inclusive_policy": (
+            "Преподаватель обеспечивает уважительное взаимодействие и "
+            "возможность уточнения сложных тем в рамках консультаций."
+        ),
+        "assessment_policy": (
+            "Оценка складывается из домашних заданий, практической активности, "
+            "рубежных контролей и итоговой аттестации."
+        ),
+        "grading_scale": "\n".join(
+            [
+                "Домашние задания - 20%",
+                "Практическая активность - 20%",
+                "Рубежный контроль - 30%",
+                "Итоговый экзамен - 30%",
+            ]
+        ),
+        "main_literature": "\n".join(
+            [
+                "1. Open Mathematics Resources for Calculus. 2024.",
+                "2. Stewart J. Calculus Updated Course Materials. 2024.",
+                "3. Lay D., Lay S., McDonald J. Linear Algebra and Its Applications. 2023.",
+            ]
+        ),
+        "additional_literature": "\n".join(
+            [
+                "1. Khan Academy Calculus Materials. 2025.",
+                "2. MIT OpenCourseWare Mathematics Resources. 2025.",
+            ]
+        ),
+    },
+}
 
 
 class Command(BaseCommand):
-    help = "Seed demo data for testing."
+    help = "Seed clean demo data for diploma defense."
 
     def handle(self, *args, **options):
         original_email_backend = settings.EMAIL_BACKEND
@@ -26,356 +435,248 @@ class Command(BaseCommand):
         finally:
             settings.EMAIL_BACKEND = original_email_backend
 
-        self.stdout.write(self.style.SUCCESS("Demo data ready."))
+        self.stdout.write(self.style.SUCCESS("Demo defense data is ready."))
+        self.stdout.write(self.style.SUCCESS(f"Demo password for all accounts: {DEMO_PASSWORD}"))
 
 
 def _ensure_users():
     User = get_user_model()
-    defaults = [
-        ("teacher1", "teacher", "Aruzhan", "Suleimen", "teacher1@almau.demo"),
-        ("teacher2", "teacher", "Daniyar", "Kenzhe", "teacher2@almau.demo"),
-        ("leader1", "program_leader", "Aigerim", "Tulen", "leader1@almau.demo"),
-        ("dean1", "dean", "Bolat", "Nur", "dean1@almau.demo"),
-        ("umu1", "umu", "Dana", "Bek", "umu1@almau.demo"),
-    ]
     users = {}
-    for username, role, first_name, last_name, email in defaults:
-        user = User.objects.filter(username=username).first()
+    for spec in USER_SPECS:
+        user = User.objects.filter(username=spec["username"]).first()
         if not user:
-            user = User(
-                username=username,
-                first_name=first_name,
-                last_name=last_name,
-                email=email,
-                role=role,
-                is_active=True,
-            )
-            if hasattr(user, "email_verified"):
-                user.email_verified = True
-            user.set_password("Test1234!")
-            user.save()
-        users[username] = user
+            user = User(username=spec["username"])
+        user.email = spec["email"]
+        user.first_name = spec["first_name"]
+        user.last_name = spec["last_name"]
+        user.role = spec["role"]
+        user.is_active = True
+        user.is_superuser = spec["is_superuser"]
+        user.is_staff = spec["is_staff"]
+        if hasattr(user, "can_teach"):
+            user.can_teach = spec["can_teach"]
+        if hasattr(user, "email_verified"):
+            user.email_verified = True
+        user.set_password(DEMO_PASSWORD)
+        user.save()
+        users[spec["username"]] = user
     return users
 
 
 def _ensure_courses(users):
-    courses_data = [
-        {
-            "code": "DEMO-IS101",
-            "title_ru": "Информационные системы",
-            "title_kz": "Ақпараттық жүйелер",
-            "title_en": "Information Systems",
-            "description_ru": "Базовые принципы создания и внедрения информационных систем.",
-            "description_kz": "Ақпараттық жүйелерді жобалау және енгізу негіздері.",
-            "description_en": "Core concepts of designing and implementing information systems.",
-            "owner": users["teacher1"],
-            "is_shared": True,
-        },
-        {
-            "code": "DEMO-DS201",
-            "title_ru": "Основы Data Science",
-            "title_kz": "Data Science негіздері",
-            "title_en": "Data Science Fundamentals",
-            "description_ru": "Данные, статистика и первые модели машинного обучения.",
-            "description_kz": "Деректер, статистика және машиналық оқытуға кіріспе.",
-            "description_en": "Data, statistics, and introductory machine learning.",
-            "owner": users["teacher1"],
-            "is_shared": True,
-        },
-        {
-            "code": "DEMO-SE210",
-            "title_ru": "Инженерия программного обеспечения",
-            "title_kz": "Бағдарламалық қамтамасыз ету инженериясы",
-            "title_en": "Software Engineering",
-            "description_ru": "Полный цикл разработки ПО и командные практики.",
-            "description_kz": "Бағдарламалық өнімді әзірлеу өмірлік циклі.",
-            "description_en": "Full software lifecycle and team practices.",
-            "owner": users["teacher2"],
-            "is_shared": False,
-        },
-        {
-            "code": "DEMO-BA220",
-            "title_ru": "Бизнес-аналитика",
-            "title_kz": "Бизнес-аналитика",
-            "title_en": "Business Analytics",
-            "description_ru": "Метрики, требования и принятие решений на основе данных.",
-            "description_kz": "Метрикалар, талаптар және деректерге негізделген шешімдер.",
-            "description_en": "Metrics, requirements, and data-driven decision making.",
-            "owner": users["leader1"],
-            "is_shared": True,
-        },
-        {
-            "code": "DEMO-AI301",
-            "title_ru": "Прикладной искусственный интеллект",
-            "title_kz": "Қолданбалы жасанды интеллект",
-            "title_en": "Applied Artificial Intelligence",
-            "description_ru": "Практика применения ИИ в бизнесе и ИТ.",
-            "description_kz": "ИИ-ді бизнес пен ІТ-де қолдану тәжірибесі.",
-            "description_en": "Practical AI applications in business and IT.",
-            "owner": users["teacher2"],
-            "is_shared": False,
-        },
-    ]
-
-    courses = []
-    for item in courses_data:
-        course, created = Course.objects.get_or_create(
-            code=item["code"],
-            defaults={
-                "owner": item["owner"],
-                "title_ru": item["title_ru"],
-                "title_kz": item["title_kz"],
-                "title_en": item["title_en"],
-                "description_ru": item["description_ru"],
-                "description_kz": item["description_kz"],
-                "description_en": item["description_en"],
-                "available_languages": "ru,kz,en",
-                "is_shared": item["is_shared"],
-            },
-        )
-        courses.append(course)
+    courses = {}
+    for spec in COURSE_SPECS:
+        owner = users[spec["owner"]]
+        course = Course.objects.filter(owner=owner, code=spec["code"]).first()
+        if not course:
+            course = Course(owner=owner, code=spec["code"])
+        course.title_ru = spec["title_ru"]
+        course.title_kz = spec["title_kz"]
+        course.title_en = spec["title_en"]
+        course.description_ru = spec["description_ru"]
+        course.description_kz = spec["description_kz"]
+        course.description_en = spec["description_en"]
+        course.available_languages = "ru,kz,en"
+        course.is_shared = spec["is_shared"]
+        course.save()
+        courses[spec["key"]] = course
     return courses
 
 
 def _ensure_topics(courses):
-    topic_map = {
-        "DEMO-IS101": [
-            ("Введение в информационные системы", "Ақпараттық жүйелерге кіріспе", "Introduction to Information Systems"),
-            ("Моделирование процессов (BPMN)", "Процестерді модельдеу (BPMN)", "Process Modeling (BPMN)"),
-            ("Архитектура ИС", "АЖ архитектурасы", "IS Architecture"),
-            ("Базы данных и ER-модели", "Деректер базасы және ER-модель", "Databases and ER Models"),
-            ("Проектирование интерфейсов", "Интерфейс жобалау", "Interface Design"),
-            ("Интеграция и API", "Интеграция және API", "Integration and API"),
-            ("Безопасность ИС", "АЖ қауіпсіздігі", "IS Security"),
-            ("Проект внедрения", "Енгізу жобасы", "Implementation Project"),
-        ],
-        "DEMO-DS201": [
-            ("Введение в Data Science", "Data Science-ке кіріспе", "Introduction to Data Science"),
-            ("Python для анализа данных", "Деректерді талдауға Python", "Python for Data Analysis"),
-            ("Сбор и очистка данных", "Деректерді жинау және тазалау", "Data Collection and Cleaning"),
-            ("Статистика и вероятности", "Статистика және ықтималдық", "Statistics and Probability"),
-            ("Регрессия и прогноз", "Регрессия және болжау", "Regression and Forecasting"),
-            ("Классификация", "Классификация", "Classification"),
-            ("Оценка моделей", "Модельдерді бағалау", "Model Evaluation"),
-            ("Визуализация данных", "Деректерді визуализациялау", "Data Visualization"),
-        ],
-        "DEMO-SE210": [
-            ("Жизненный цикл ПО", "БҚ өмірлік циклі", "Software Lifecycle"),
-            ("Сбор требований", "Талаптарды жинау", "Requirements Gathering"),
-            ("Архитектура и паттерны", "Архитектура және паттерндер", "Architecture and Patterns"),
-            ("Тестирование и QA", "Тестілеу және QA", "Testing and QA"),
-            ("CI/CD и автоматизация", "CI/CD және автоматтандыру", "CI/CD and Automation"),
-            ("Командная разработка", "Командалық әзірлеу", "Team Development"),
-            ("Качество кода", "Код сапасы", "Code Quality"),
-            ("Командный проект", "Командалық жоба", "Team Project"),
-        ],
-        "DEMO-BA220": [
-            ("Основы бизнес-аналитики", "Бизнес-аналитика негіздері", "Business Analytics Foundations"),
-            ("Метрики и KPI", "Метрикалар және KPI", "Metrics and KPIs"),
-            ("Сбор требований", "Талаптарды жинау", "Requirements Collection"),
-            ("SQL для аналитиков", "Аналитиктерге SQL", "SQL for Analysts"),
-            ("BI-инструменты", "BI-құралдар", "BI Tools"),
-            ("Моделирование процессов", "Процестерді модельдеу", "Process Modeling"),
-            ("Презентация инсайтов", "Инсайттарды ұсыну", "Presenting Insights"),
-            ("Бизнес-кейс", "Бизнес-кейс", "Business Case"),
-        ],
-        "DEMO-AI301": [
-            ("Введение в ИИ", "ИИ-ге кіріспе", "Introduction to AI"),
-            ("NLP и языковые модели", "NLP және тілдік модельдер", "NLP and Language Models"),
-            ("Computer Vision", "Computer Vision", "Computer Vision"),
-            ("Рекомендательные системы", "Ұсыну жүйелері", "Recommender Systems"),
-            ("Prompting и LLM", "Prompting және LLM", "Prompting and LLMs"),
-            ("MLOps и деплой", "MLOps және деплой", "MLOps and Deployment"),
-            ("Этика и безопасность", "Этика және қауіпсіздік", "Ethics and Safety"),
-            ("Прикладной проект", "Қолданбалы жоба", "Applied Project"),
-        ],
-    }
+    for course_key, titles_ru in TOPIC_SPECS.items():
+        course = courses[course_key]
+        Topic.objects.filter(course=course, order_index__gt=DEMO_STUDY_WEEKS).delete()
+        for index, title_ru in enumerate(titles_ru[:DEMO_STUDY_WEEKS], start=1):
+            topic = Topic.objects.filter(course=course, order_index=index).first()
+            if not topic:
+                topic = Topic(course=course, order_index=index)
+            topic.title_ru = title_ru
+            topic.title_kz = title_ru
+            topic.title_en = title_ru
+            topic.description_ru = f"Тема раскрывает содержание раздела: {title_ru}."
+            topic.description_kz = f"Тақырып бөлім мазмұнын ашады: {title_ru}."
+            topic.description_en = f"The topic covers the section: {title_ru}."
+            topic.default_hours = 3
+            topic.week_type = Topic.WeekType.PRACTICE if index % 5 == 0 else Topic.WeekType.LECTURE
+            topic.is_active = True
+            topic.save()
+            _ensure_topic_metadata(topic, course)
 
-    for course in courses:
-        if course.topics.exists():
-            continue
-        topics = topic_map.get(course.code, [])
-        for idx, (title_ru, title_kz, title_en) in enumerate(topics, start=1):
-            topic = Topic.objects.create(
-                course=course,
-                order_index=idx,
-                title_ru=title_ru,
-                title_kz=title_kz,
-                title_en=title_en,
-                description_ru=f"Краткое описание темы: {title_ru}.",
-                description_kz=f"Тақырыптың қысқаша сипаттамасы: {title_kz}.",
-                description_en=f"Topic overview: {title_en}.",
-                default_hours=2,
-                week_type=Topic.WeekType.LECTURE if idx % 3 else Topic.WeekType.PRACTICE,
-                is_active=True,
-            )
 
-            TopicLiterature.objects.create(
-                topic=topic,
-                title=f"{course.title_en} Essentials",
-                author="AlmaU Press",
-                year="2024",
-                lit_type=TopicLiterature.LitType.MAIN,
-            )
-            TopicLiterature.objects.create(
-                topic=topic,
-                title=f"Selected readings on {title_en}",
-                author="Various",
-                year="2023",
-                lit_type=TopicLiterature.LitType.ADDITIONAL,
-            )
-
-            TopicQuestion.objects.create(
-                topic=topic,
-                question_ru=f"Какие ключевые идеи раскрывает тема «{title_ru}»?",
-                question_kz=f"«{title_kz}» тақырыбының негізгі идеялары қандай?",
-                question_en=f"What are the key ideas of \"{title_en}\"?",
-            )
-            TopicQuestion.objects.create(
-                topic=topic,
-                question_ru=f"Как применить тему «{title_ru}» на практике?",
-                question_kz=f"«{title_kz}» тақырыбын практикада қалай қолданамыз?",
-                question_en=f"How can \"{title_en}\" be applied in practice?",
-            )
+def _ensure_topic_metadata(topic, course):
+    TopicLiterature.objects.get_or_create(
+        topic=topic,
+        lit_type=TopicLiterature.LitType.MAIN,
+        defaults={
+            "title": f"{course.title_en} Core Readings",
+            "author": "AlmaU Methodology Team",
+            "year": "2024",
+        },
+    )
+    TopicLiterature.objects.get_or_create(
+        topic=topic,
+        lit_type=TopicLiterature.LitType.ADDITIONAL,
+        defaults={
+            "title": f"Supplementary materials for {topic.title_en}",
+            "author": "Various authors",
+            "year": "2025",
+        },
+    )
+    TopicQuestion.objects.get_or_create(
+        topic=topic,
+        question_ru=f"Какие ключевые идеи раскрывает тема «{topic.title_ru}»?",
+        defaults={
+            "question_kz": f"«{topic.title_kz}» тақырыбы қандай негізгі идеяларды қамтиды?",
+            "question_en": f"What key ideas does the topic '{topic.title_en}' cover?",
+        },
+    )
+    TopicQuestion.objects.get_or_create(
+        topic=topic,
+        question_ru=f"Как тема «{topic.title_ru}» применяется на практике?",
+        defaults={
+            "question_kz": f"«{topic.title_kz}» тақырыбы практикада қалай қолданылады?",
+            "question_en": f"How is the topic '{topic.title_en}' applied in practice?",
+        },
+    )
 
 
 def _ensure_syllabi(courses, users):
-    course_by_code = {course.code: course for course in courses}
-    syllabus_seeds = [
-        ("DEMO-IS101", "Fall 2025", "2025/2026", users["teacher1"], Syllabus.Status.DRAFT, False),
-        ("DEMO-DS201", "Fall 2025", "2025/2026", users["teacher1"], Syllabus.Status.REVIEW_DEAN, False),
-        ("DEMO-SE210", "Fall 2025", "2025/2026", users["teacher2"], Syllabus.Status.REVIEW_UMU, False),
-        ("DEMO-BA220", "Fall 2025", "2025/2026", users["leader1"], Syllabus.Status.REVIEW_UMU, True),
-        ("DEMO-AI301", "Fall 2025", "2025/2026", users["teacher2"], Syllabus.Status.APPROVED, True),
-        ("DEMO-IS101", "Spring 2026", "2025/2026", users["teacher1"], Syllabus.Status.REJECTED, False),
-    ]
-
     syllabi = []
-    for code, semester, year, creator, target_status, is_shared in syllabus_seeds:
-        course = course_by_code.get(code)
-        if not course:
-            continue
-        syllabus, created = Syllabus.objects.get_or_create(
+    for spec in SYLLABUS_SPECS:
+        course = courses[spec["course_key"]]
+        creator = users[spec["creator"]]
+        content = SYLLABUS_CONTENT[spec["course_key"]]
+        syllabus = Syllabus.objects.filter(
             course=course,
             creator=creator,
-            semester=semester,
-            academic_year=year,
-            defaults={
-                "status": Syllabus.Status.DRAFT,
-                "total_weeks": 8,
-                "main_language": "ru",
-                "is_shared": is_shared,
-                "credits_ects": "5",
-                "total_hours": 90,
-                "contact_hours": 45,
-                "self_study_hours": 45,
-                "delivery_format": "Очный",
-                "level": "Бакалавриат",
-                "program_name": "Информационные технологии",
-                "instructor_name": creator.get_full_name() or creator.username,
-                "instructor_contacts": creator.email,
-                "course_description": course.description_ru,
-                "course_goal": "Сформировать практические навыки и понимание ключевых концепций.",
-                "learning_outcomes": "Понимание ключевых концепций\nНавыки анализа кейсов\nПрактическая работа",
-                "teaching_methods": "Лекции\nПрактические занятия\nКейс-стади",
-                "assessment_policy": "Текущие задания 40%\nПроект 30%\nИтоговый экзамен 30%",
-            },
-        )
-        if created:
-            _attach_topics(syllabus)
-            SyllabusRevision.objects.create(
-                syllabus=syllabus,
-                changed_by=creator,
-                note="Первичная версия",
-                version_number=1,
+            semester=spec["semester"],
+            academic_year=spec["academic_year"],
+        ).first()
+        if not syllabus:
+            syllabus = Syllabus(
+                course=course,
+                creator=creator,
+                semester=spec["semester"],
+                academic_year=spec["academic_year"],
             )
-            _advance_status(syllabus, target_status, users, creator)
+        syllabus.status = spec["status"]
+        syllabus.total_weeks = DEMO_STUDY_WEEKS
+        syllabus.main_language = "ru"
+        syllabus.is_shared = spec["is_shared"]
+        syllabus.version_number = spec["version_number"]
+        syllabus.ai_feedback = ""
+        syllabus.credits_ects = "6"
+        syllabus.total_hours = 180
+        syllabus.contact_hours = 45
+        syllabus.self_study_hours = 135
+        syllabus.prerequisites = "Базовая цифровая грамотность и навыки самостоятельной работы."
+        syllabus.delivery_format = "blended"
+        syllabus.level = "bachelor"
+        syllabus.program_name = "Information Systems"
+        syllabus.instructor_name = "Alikhan Saparov"
+        syllabus.instructor_contacts = "alikhan.saparov@almau.local"
+        syllabus.class_schedule = "Mon 10:00-11:50, Wed 12:00-12:50"
+        syllabus.course_description = course.description_ru
+        syllabus.course_goal = content["course_goal"]
+        syllabus.learning_outcomes = content["learning_outcomes"]
+        syllabus.teaching_methods = content["teaching_methods"]
+        syllabus.teaching_philosophy = content["teaching_philosophy"]
+        syllabus.course_policy = content["course_policy"]
+        syllabus.academic_integrity_policy = content["academic_integrity_policy"]
+        syllabus.inclusive_policy = content["inclusive_policy"]
+        syllabus.assessment_policy = content["assessment_policy"]
+        syllabus.grading_scale = content["grading_scale"]
+        syllabus.appendix = "Приложения не требуются."
+        syllabus.main_literature = content["main_literature"]
+        syllabus.additional_literature = content["additional_literature"]
+        syllabus.save()
+        _sync_syllabus_topics(syllabus)
+        _ensure_revision(syllabus, creator)
         syllabi.append(syllabus)
     return syllabi
 
 
-def _attach_topics(syllabus):
-    topics = list(syllabus.course.topics.order_by("order_index"))
-    for idx, topic in enumerate(topics, start=1):
-        SyllabusTopic.objects.get_or_create(
+def _sync_syllabus_topics(syllabus):
+    topics = list(syllabus.course.topics.order_by("order_index")[: syllabus.total_weeks or DEMO_STUDY_WEEKS])
+    SyllabusTopic.objects.filter(syllabus=syllabus).exclude(topic__in=topics).delete()
+    for week_number, topic in enumerate(topics, start=1):
+        item, _ = SyllabusTopic.objects.get_or_create(
             syllabus=syllabus,
             topic=topic,
-            defaults={
-                "week_number": idx,
-                "week_label": str(idx),
-                "tasks": "Домашнее задание и мини-кейс.",
-                "learning_outcomes": "Применять знания на практике.",
-                "literature_notes": "",
-                "assessment": "Мини-отчет или презентация.",
-            },
         )
+        item.week_number = week_number
+        item.is_included = True
+        item.custom_title = ""
+        item.custom_hours = topic.default_hours
+        item.week_label = str(week_number)
+        item.tasks = "Домашнее задание, мини-кейс и краткое обсуждение результатов."
+        item.learning_outcomes = "Применять знания темы на практике и аргументировать решение."
+        item.literature_notes = ""
+        item.assessment = "Краткий отчет, решение задачи или мини-презентация."
+        item.save()
 
 
-def _advance_status(syllabus, target_status, users, creator):
-    if target_status == Syllabus.Status.DRAFT:
+def _ensure_revision(syllabus, creator):
+    if SyllabusRevision.objects.filter(
+        syllabus=syllabus,
+        version_number=syllabus.version_number,
+    ).exists():
         return
-
-    dean = users["dean1"]
-    umu = users["umu1"]
-
-    if target_status == Syllabus.Status.REVIEW_DEAN:
-        change_status(creator, syllabus, Syllabus.Status.REVIEW_DEAN)
-        return
-
-    if target_status == Syllabus.Status.REVIEW_UMU:
-        change_status(creator, syllabus, Syllabus.Status.REVIEW_DEAN)
-        change_status(dean, syllabus, Syllabus.Status.REVIEW_UMU)
-        return
-
-    if target_status == Syllabus.Status.APPROVED:
-        change_status(creator, syllabus, Syllabus.Status.REVIEW_DEAN)
-        change_status(dean, syllabus, Syllabus.Status.REVIEW_UMU)
-        change_status(umu, syllabus, Syllabus.Status.APPROVED)
-        return
-
-    if target_status == Syllabus.Status.REJECTED:
-        change_status(creator, syllabus, Syllabus.Status.REVIEW_DEAN)
-        change_status(
-            dean,
-            syllabus,
-            Syllabus.Status.REJECTED,
-            comment="Нужны правки по нагрузке и структуре.",
-        )
+    SyllabusRevision.objects.create(
+        syllabus=syllabus,
+        changed_by=creator,
+        note="Demo version for diploma defense.",
+        version_number=syllabus.version_number,
+    )
 
 
 def _ensure_ai_checks(syllabi):
-    for syllabus in syllabi[:2]:
-        if syllabus.ai_checks.exists():
+    for syllabus in syllabi:
+        if syllabus.status not in {
+            Syllabus.Status.AI_CHECK,
+            Syllabus.Status.REVIEW_DEAN,
+            Syllabus.Status.REVIEW_UMU,
+            Syllabus.Status.APPROVED,
+        }:
             continue
+        if AiCheckResult.objects.filter(syllabus=syllabus).exists():
+            continue
+        summary = (
+            "Силлабус соответствует стандартам."
+            if syllabus.status in {Syllabus.Status.REVIEW_UMU, Syllabus.Status.APPROVED}
+            else "Структура заполнена корректно. Критических замечаний не обнаружено."
+        )
         AiCheckResult.objects.create(
             syllabus=syllabus,
             created_at=timezone.now(),
             model_name="rules-only",
-            summary="Демо-проверка: структура заполнена, критических проблем нет.",
-            raw_result={"demo": True},
+            summary=summary,
+            raw_result={"demo": True, "status": syllabus.status},
         )
 
 
 def _ensure_announcements(users):
-    if Announcement.objects.exists():
-        return
     announcements = [
         {
-            "title": "График согласований на семестр",
-            "body": "Деканат принимает заявки на согласование до 15 сентября. После проверки документ будет направлен в УМУ.",
-            "created_by": users["dean1"],
+            "title": "График согласования силлабусов",
+            "body": (
+                "Деканат принимает документы на согласование до 15 сентября. "
+                "После проверки силлабусы передаются в УМУ для финального согласования."
+            ),
+            "created_by": users["dean_demo"],
         },
         {
-            "title": "Обновление требований к силлабусам",
-            "body": "Проверьте заполнение целей, результатов обучения и списка литературы. "
-            "Используйте единый формат названий тем.",
-            "created_by": users["umu1"],
-        },
-        {
-            "title": "Напоминание по отчетности",
-            "body": "Пожалуйста, обновите рабочие программы дисциплин до конца месяца.",
-            "created_by": users["dean1"],
+            "title": "Требования к структуре силлабуса",
+            "body": (
+                "Проверьте заполнение целей, результатов обучения, политики курса, "
+                "литературы и распределения тем по всем 12 неделям."
+            ),
+            "created_by": users["umu_demo"],
         },
     ]
     for item in announcements:
-        Announcement.objects.create(**item)
+        Announcement.objects.get_or_create(
+            title=item["title"],
+            defaults=item,
+        )

@@ -12,7 +12,7 @@
       </p>
     {% endif %}
   </div>
-  {% if user == course.owner or user.role == "admin" %}
+  {% if user == course.owner or user.can_edit_content %}
     <a href="{% url 'course_edit' course.pk %}" class="btn-primary w-full sm:w-auto justify-center">Редактировать курс</a>
   {% endif %}
 </div>
@@ -26,7 +26,7 @@
 
 <div class="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center mb-2">
   <h2 class="text-xl font-semibold">Темы курса</h2>
-  {% if user == course.owner or user.role == "admin" %}
+  {% if user == course.owner or user.can_edit_content %}
     <a href="{% url 'topic_create' course.pk %}" class="btn-secondary w-full sm:w-auto justify-center">Добавить тему</a>
   {% endif %}
 </div>
@@ -96,7 +96,7 @@
           </details>
         </td>
         <td class="p-2 responsive-table__actions" data-label="Действие">
-          {% if user == course.owner or user.role == "admin" %}
+          {% if user == course.owner or user.can_edit_content %}
             <a href="{% url 'topic_edit' course.pk topic.pk %}" class="link">Редактировать</a>
           {% endif %}
         </td>
@@ -108,7 +108,7 @@
   <div class="empty-state">
     <div class="empty-state__title">Темы пока не добавлены</div>
     <div class="empty-state__text">Добавьте темы, чтобы сформировать структуру силлабуса по неделям.</div>
-    {% if user == course.owner or user.role == "admin" %}
+    {% if user == course.owner or user.can_edit_content %}
       <div class="page-actions mt-4">
         <a href="{% url 'topic_create' course.pk %}" class="btn-primary w-full sm:w-auto justify-center">Добавить тему</a>
       </div>
