@@ -15,6 +15,29 @@ logger = logging.getLogger(__name__)
 User = get_user_model()
 _ALLOWED_STATUSES = {choice[0] for choice in Syllabus.Status.choices}
 _REVIEW_STATUSES = {Syllabus.Status.REVIEW_DEAN, Syllabus.Status.REVIEW_UMU}
+_AI_QUEUE_ALLOWED_STATUSES = {
+    Syllabus.Status.DRAFT,
+    Syllabus.Status.CORRECTION,
+    Syllabus.Status.AI_CHECK,
+}
+
+
+def _is_admin_like(user) -> bool:
+    return bool(
+        user.is_superuser
+        or user.is_staff
+        or getattr(user, "role", "") == "admin"
+        or getattr(user, "is_admin_like", False)
+    )
+
+
+def _reset_ai_claim_fields(syllabus: Syllabus, update_fields: list[str]) -> None:
+    if getattr(syllabus, "ai_claimed_at", None) is not None:
+        syllabus.ai_claimed_at = None
+        update_fields.append("ai_claimed_at")
+    if getattr(syllabus, "ai_claimed_by", ""):
+        syllabus.ai_claimed_by = ""
+        update_fields.append("ai_claimed_by")
 
 
 def _reviewer_label(user) -> str:
@@ -141,12 +164,7 @@ def change_status(user, syllabus: Syllabus, new_status: str, comment: str = ""):
     if syllabus.status != old_status:
         syllabus.status = old_status
 
-    is_admin = bool(
-        user.is_superuser
-        or user.is_staff
-        or getattr(user, "role", "") == "admin"
-        or getattr(user, "is_admin_like", False)
-    )
+    is_admin = _is_admin_like(user)
     user_role = getattr(user, "role", "")
     is_dean = is_admin or user_role == "dean"
     is_umu = is_admin or user_role == "umu"
@@ -203,8 +221,11 @@ def change_status(user, syllabus: Syllabus, new_status: str, comment: str = ""):
         raise PermissionDenied("Ручной переход в этот статус запрещен.")
 
     with transaction.atomic():
+        update_fields = ["status"]
+        if new_status != Syllabus.Status.AI_CHECK:
+            _reset_ai_claim_fields(syllabus, update_fields)
         syllabus.status = new_status
-        syllabus.save(update_fields=["status"])
+        syllabus.save(update_fields=update_fields)
 
         status_log = SyllabusStatusLog.objects.create(
             syllabus=syllabus,
@@ -234,6 +255,63 @@ def change_status(user, syllabus: Syllabus, new_status: str, comment: str = ""):
     _notify_on_status_change(syllabus, new_status, comment)
 
     return syllabus
+
+
+def queue_for_ai_check(user, syllabus: Syllabus, comment: str = "") -> tuple[Syllabus, bool]:
+    """
+    Put a syllabus into AI queue through the workflow layer.
+    Returns (syllabus, queued_now) where queued_now=False means it was already queued.
+    """
+    old_status = Syllabus.normalize_status(syllabus.status)
+    comment = (comment or "").strip()
+
+    if syllabus.status != old_status:
+        syllabus.status = old_status
+
+    if not (user == syllabus.creator or _is_admin_like(user)):
+        raise PermissionDenied("Только автор или администратор может отправить силлабус на AI-проверку.")
+
+    if old_status not in _AI_QUEUE_ALLOWED_STATUSES:
+        raise PermissionDenied("Текущий статус не позволяет отправить силлабус на AI-проверку.")
+
+    update_fields: list[str] = []
+    if syllabus.ai_feedback:
+        syllabus.ai_feedback = ""
+        update_fields.append("ai_feedback")
+    _reset_ai_claim_fields(syllabus, update_fields)
+
+    if old_status == Syllabus.Status.AI_CHECK:
+        if update_fields:
+            syllabus.save(update_fields=update_fields)
+        return syllabus, False
+
+    with transaction.atomic():
+        syllabus.status = Syllabus.Status.AI_CHECK
+        syllabus.save(update_fields=["status", *update_fields])
+
+        status_log = SyllabusStatusLog.objects.create(
+            syllabus=syllabus,
+            from_status=old_status,
+            to_status=Syllabus.Status.AI_CHECK,
+            changed_by=user,
+            comment=comment,
+        )
+
+        SyllabusAuditLog.objects.create(
+            syllabus=syllabus,
+            actor=user,
+            action=SyllabusAuditLog.Action.STATUS_CHANGED,
+            metadata={"from": old_status, "to": Syllabus.Status.AI_CHECK, "source": "ai_queue"},
+            message=comment or "Отправлен в очередь AI-проверки",
+        )
+
+    try:
+        create_notifications_for_status_log(status_log)
+    except Exception as exc:
+        logger.error("Notification record error: %s", exc)
+
+    _notify_on_status_change(syllabus, Syllabus.Status.AI_CHECK, comment)
+    return syllabus, True
 
 
 def change_status_system(
@@ -269,6 +347,8 @@ def change_status_system(
     with transaction.atomic():
         syllabus.status = new_status
         update_fields = ["status", *update_fields]
+        if new_status != Syllabus.Status.AI_CHECK:
+            _reset_ai_claim_fields(syllabus, update_fields)
         syllabus.save(update_fields=update_fields)
 
         status_log = SyllabusStatusLog.objects.create(

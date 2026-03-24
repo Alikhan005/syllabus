@@ -46,7 +46,7 @@
 
       {% if syllabus.pdf_file %}
         <div class="syllabus-hero__download">
-            <a href="{{ syllabus.pdf_file.url }}" download class="btn-white bg-white text-slate-700 border border-slate-300 hover:bg-slate-50 px-4 py-2 rounded-lg font-medium shadow-sm text-sm flex items-center gap-2 transition">
+            <a href="{% url 'syllabus_pdf' syllabus.pk %}?download=1" class="btn-white bg-white text-slate-700 border border-slate-300 hover:bg-slate-50 px-4 py-2 rounded-lg font-medium shadow-sm text-sm flex items-center gap-2 transition">
                 <i class="fas fa-download text-slate-400"></i> Скачать PDF
             </a>
         </div>
@@ -217,10 +217,10 @@
         </div>
         <div class="flex flex-col gap-2">
             {% if syllabus.pdf_file %}
-            <a href="{{ syllabus.pdf_file.url }}" target="_blank" class="w-full text-center bg-slate-800 hover:bg-slate-700 text-white py-2 rounded-lg text-sm font-medium transition">
+            <a href="{% url 'syllabus_pdf' syllabus.pk %}" target="_blank" class="w-full text-center bg-slate-800 hover:bg-slate-700 text-white py-2 rounded-lg text-sm font-medium transition">
                 <i class="fas fa-eye mr-2"></i> Просмотреть
             </a>
-            <a href="{{ syllabus.pdf_file.url }}" download class="w-full text-center border border-slate-300 hover:bg-slate-50 text-slate-600 py-2 rounded-lg text-sm font-medium transition">
+            <a href="{% url 'syllabus_pdf' syllabus.pk %}?download=1" class="w-full text-center border border-slate-300 hover:bg-slate-50 text-slate-600 py-2 rounded-lg text-sm font-medium transition">
                 <i class="fas fa-download mr-2"></i> Скачать
             </a>
             {% else %}

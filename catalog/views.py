@@ -66,12 +66,12 @@ def course_detail(request, pk):
         Course.objects.prefetch_related("topics__literature", "topics__questions"),
         pk=pk,
     )
-    if (
-        course.owner != request.user
-        and not course.is_shared
-        and not request.user.is_admin_like
-        and request.user.role != "umu"
-        and not request.user.is_superuser
+    if not (
+        course.owner == request.user
+        or course.is_shared
+        or getattr(request.user, "is_admin_like", False)
+        or getattr(request.user, "role", "") == "umu"
+        or getattr(request.user, "is_superuser", False)
     ):
         raise PermissionDenied("Доступ к этому курсу запрещен.")
     topics = course.topics.order_by("order_index")
@@ -86,21 +86,27 @@ def topic_create(request, course_pk):
         form = TopicForm(request.POST)
         literature_formset = TopicLiteratureFormSet(request.POST, prefix="lit")
         question_formset = TopicQuestionFormSet(request.POST, prefix="q")
-        if form.is_valid() and literature_formset.is_valid() and question_formset.is_valid():
-            topic = form.save(commit=False)
-            topic.course = course
-            topic.save()
-
-            literature_formset.instance = topic
-            literature_formset.save()
-            question_formset.instance = topic
-            question_formset.save()
-
-            return redirect("course_detail", pk=course.pk)
     else:
         form = TopicForm()
         literature_formset = TopicLiteratureFormSet(prefix="lit")
         question_formset = TopicQuestionFormSet(prefix="q")
+    if request.method == "POST" and all(
+        (
+            form.is_valid(),
+            literature_formset.is_valid(),
+            question_formset.is_valid(),
+        )
+    ):
+        topic = form.save(commit=False)
+        topic.course = course
+        topic.save()
+
+        literature_formset.instance = topic
+        literature_formset.save()
+        question_formset.instance = topic
+        question_formset.save()
+
+        return redirect("course_detail", pk=course.pk)
 
     return render(
         request,
@@ -121,17 +127,23 @@ def topic_edit(request, course_pk, pk):
     topic = get_object_or_404(Topic, pk=pk, course=course)
     if request.method == "POST":
         form = TopicForm(request.POST, instance=topic)
-        literature_formset = TopicLiteratureFormSet(request.POST, instance=topic, prefix="lit")
-        question_formset = TopicQuestionFormSet(request.POST, instance=topic, prefix="q")
-        if form.is_valid() and literature_formset.is_valid() and question_formset.is_valid():
-            form.save()
-            literature_formset.save()
-            question_formset.save()
-            return redirect("course_detail", pk=course.pk)
+        literature_formset = TopicLiteratureFormSet(request.POST, prefix="lit", instance=topic)
+        question_formset = TopicQuestionFormSet(request.POST, prefix="q", instance=topic)
     else:
         form = TopicForm(instance=topic)
-        literature_formset = TopicLiteratureFormSet(instance=topic, prefix="lit")
-        question_formset = TopicQuestionFormSet(instance=topic, prefix="q")
+        literature_formset = TopicLiteratureFormSet(prefix="lit", instance=topic)
+        question_formset = TopicQuestionFormSet(prefix="q", instance=topic)
+    if request.method == "POST" and all(
+        (
+            form.is_valid(),
+            literature_formset.is_valid(),
+            question_formset.is_valid(),
+        )
+    ):
+        form.save()
+        literature_formset.save()
+        question_formset.save()
+        return redirect("course_detail", pk=course.pk)
 
     return render(
         request,

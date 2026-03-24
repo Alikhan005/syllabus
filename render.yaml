@@ -22,6 +22,22 @@ services:
         value: "https://*.onrender.com"
       - key: CSRF_TRUSTED_ORIGINS
         value: "https://*.onrender.com"
+      - key: DJANGO_MEDIA_ROOT
+        value: "/var/data/media"
+      - key: DJANGO_SECURE_SSL_REDIRECT
+        value: "True"
+      - key: DJANGO_SESSION_COOKIE_SECURE
+        value: "True"
+      - key: DJANGO_CSRF_COOKIE_SECURE
+        value: "True"
+      - key: DJANGO_SECURE_HSTS_SECONDS
+        value: "31536000"
+      - key: DJANGO_SECURE_HSTS_INCLUDE_SUBDOMAINS
+        value: "True"
+      - key: DJANGO_SECURE_HSTS_PRELOAD
+        value: "True"
+      - key: DJANGO_X_FRAME_OPTIONS
+        value: "DENY"
       - key: AI_WORKER_PRELOAD_MODEL
         value: "false"
       - key: AI_WORKER_IDLE_SLEEP
@@ -30,6 +46,10 @@ services:
         fromDatabase:
           name: almau-syllabus-db
           property: connectionString
+    disk:
+      name: almau-syllabus-media
+      mountPath: /var/data
+      sizeGB: 1
 
 databases:
   - name: almau-syllabus-db

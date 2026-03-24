@@ -25,21 +25,23 @@ def notification_actor_label(status_log) -> str:
 
 def notification_title(status_log) -> str:
     course_code = getattr(status_log.syllabus.course, "code", f"ID {status_log.syllabus_id}")
-    status_to = status_log.to_status
 
-    if status_to == Syllabus.Status.REVIEW_DEAN:
-        return f"{course_code}: отправлен на согласование декану"
-    if status_to == Syllabus.Status.REVIEW_UMU:
-        return f"{course_code}: отправлен на согласование в УМУ"
-    if status_to == Syllabus.Status.CORRECTION:
-        return f"{course_code}: возвращен на доработку"
-    if status_to == Syllabus.Status.APPROVED:
-        return f"{course_code}: силлабус утвержден"
-    if status_to == Syllabus.Status.REJECTED:
-        return f"{course_code}: силлабус отклонен"
-    if status_to == Syllabus.Status.AI_CHECK:
-        return f"{course_code}: отправлен на AI-проверку"
-    return f"{course_code}: статус обновлен"
+    if status_log.to_status == Syllabus.Status.REVIEW_DEAN:
+        status_text = "Отправлен на согласование декану"
+    elif status_log.to_status == Syllabus.Status.REVIEW_UMU:
+        status_text = "Отправлен на согласование в УМУ"
+    elif status_log.to_status == Syllabus.Status.CORRECTION:
+        status_text = "Возвращен на доработку"
+    elif status_log.to_status == Syllabus.Status.APPROVED:
+        status_text = "Силлабус утвержден"
+    elif status_log.to_status == Syllabus.Status.REJECTED:
+        status_text = "Силлабус отклонен"
+    elif status_log.to_status == Syllabus.Status.AI_CHECK:
+        status_text = "Отправлен на AI-проверку"
+    else:
+        status_text = "Статус обновлен"
+
+    return f"{course_code}: {status_text}"
 
 
 def notification_body(status_log) -> str:
@@ -47,13 +49,7 @@ def notification_body(status_log) -> str:
     if comment:
         return comment
 
-    from_label = status_log.from_status_label
-    to_label = status_log.to_status_label
-    return f"Статус изменен: {from_label} -> {to_label}"
-
-
-def _active_role_users(role_key: str):
-    return User.objects.filter(is_active=True, role=role_key)
+    return f"Статус изменен: {status_log.from_status_label} -> {status_log.to_status_label}"
 
 
 def notification_recipients(status_log) -> list:
@@ -61,27 +57,26 @@ def notification_recipients(status_log) -> list:
     recipients_by_id = {}
     excluded_ids = {status_log.changed_by_id}
 
-    def add_recipient(user):
-        if not user or not getattr(user, "is_active", False):
-            return
-        if user.pk in excluded_ids:
-            return
-        recipients_by_id[user.pk] = user
-
     if status_log.to_status == Syllabus.Status.REVIEW_DEAN:
         excluded_ids.add(syllabus.creator_id)
-        for user in _active_role_users("dean"):
-            add_recipient(user)
+        for user in User.objects.filter(is_active=True, role="dean"):
+            if user.pk not in excluded_ids:
+                recipients_by_id[user.pk] = user
+
     elif status_log.to_status == Syllabus.Status.REVIEW_UMU:
         excluded_ids.add(syllabus.creator_id)
-        for user in _active_role_users("umu"):
-            add_recipient(user)
-    elif status_log.to_status in {
+        for user in User.objects.filter(is_active=True, role="umu"):
+            if user.pk not in excluded_ids:
+                recipients_by_id[user.pk] = user
+
+    elif status_log.to_status in [
         Syllabus.Status.CORRECTION,
         Syllabus.Status.APPROVED,
         Syllabus.Status.REJECTED,
-    }:
-        add_recipient(syllabus.creator)
+    ]:
+        creator = syllabus.creator
+        if creator and creator.is_active and creator.pk not in excluded_ids:
+            recipients_by_id[creator.pk] = creator
 
     return list(recipients_by_id.values())
 
@@ -91,18 +86,14 @@ def create_notifications_for_status_log(status_log) -> int:
     if not recipients:
         return 0
 
-    title = notification_title(status_log)
-    body = notification_body(status_log)
-    actor_label = notification_actor_label(status_log)
-
     notifications = [
         Notification(
             recipient=user,
             syllabus=status_log.syllabus,
             status_log=status_log,
-            title=title,
-            body=body,
-            actor_label=actor_label,
+            title=notification_title(status_log),
+            body=notification_body(status_log),
+            actor_label=notification_actor_label(status_log),
             created_at=status_log.changed_at,
         )
         for user in recipients
@@ -124,18 +115,20 @@ def notifications_queryset(user):
 def build_dashboard_notifications(user, limit: int | None = 6) -> list[dict]:
     queryset = notifications_queryset(user).order_by("-created_at")
     notifications = queryset[:limit] if limit is not None else queryset
-    return [
-        {
-            "syllabus_id": item.syllabus_id,
-            "title": item.title,
-            "body": item.body,
-            "actor_label": item.actor_label,
-            "creator_name": item.syllabus.creator.get_full_name() or item.syllabus.creator.username,
-            "changed_at": item.created_at,
-            "is_unread": item.read_at is None,
-        }
-        for item in notifications
-    ]
+    return [_serialize_notification(item) for item in notifications]
+
+
+def _serialize_notification(item):
+    creator = item.syllabus.creator
+    return {
+        "syllabus_id": item.syllabus_id,
+        "title": item.title,
+        "body": item.body,
+        "actor_label": item.actor_label,
+        "creator_name": (creator.get_full_name() or creator.username) if creator else "",
+        "changed_at": item.created_at,
+        "is_unread": item.read_at is None,
+    }
 
 
 def count_unread_notifications(user) -> int:

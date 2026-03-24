@@ -6,6 +6,8 @@ from django.views.decorators.http import require_POST
 
 from syllabi.models import Syllabus
 from syllabi.permissions import can_view_syllabus
+from workflow.services import queue_for_ai_check
+
 from .assistant import answer_syllabus_question
 from .models import AiCheckResult
 
@@ -31,27 +33,29 @@ def _can_request_ai_check(user, syllabus: Syllabus) -> bool:
 
 
 @login_required
+@require_POST
 def run_check(request, syllabus_pk):
     syllabus = get_object_or_404(Syllabus, pk=syllabus_pk)
     if not _can_view(request.user, syllabus):
-        raise PermissionDenied("Нет доступа к этому силлабусу.")
+        raise PermissionDenied("РќРµС‚ РґРѕСЃС‚СѓРїР° Рє СЌС‚РѕРјСѓ СЃРёР»Р»Р°Р±СѓСЃСѓ.")
     if not _can_request_ai_check(request.user, syllabus):
-        raise PermissionDenied("Недостаточно прав для запуска AI-проверки.")
+        raise PermissionDenied("РќРµРґРѕСЃС‚Р°С‚РѕС‡РЅРѕ РїСЂР°РІ РґР»СЏ Р·Р°РїСѓСЃРєР° AI-РїСЂРѕРІРµСЂРєРё.")
     if syllabus.status not in AI_CHECK_START_STATUSES:
         messages.error(
             request,
-            "AI-проверку можно запускать только из черновика, доработки или статуса проверки ИИ.",
+            "AI-РїСЂРѕРІРµСЂРєСѓ РјРѕР¶РЅРѕ Р·Р°РїСѓСЃРєР°С‚СЊ С‚РѕР»СЊРєРѕ РёР· С‡РµСЂРЅРѕРІРёРєР°, РґРѕСЂР°Р±РѕС‚РєРё РёР»Рё СЃС‚Р°С‚СѓСЃР° РїСЂРѕРІРµСЂРєРё РР.",
         )
         return redirect("syllabus_detail", pk=syllabus.pk)
-    if request.method == "POST":
-        if syllabus.status != Syllabus.Status.AI_CHECK:
-            syllabus.status = Syllabus.Status.AI_CHECK
-            syllabus.ai_feedback = ""
-            syllabus.save(update_fields=["status", "ai_feedback"])
-            messages.success(request, "Документ поставлен в очередь на AI-проверку.")
-        else:
-            messages.info(request, "AI-проверка уже выполняется.")
-        return redirect("syllabus_detail", pk=syllabus.pk)
+
+    syllabus, queued_now = queue_for_ai_check(
+        request.user,
+        syllabus,
+        comment="Запрошена AI-проверка из раздела результатов.",
+    )
+    if queued_now:
+        messages.success(request, "Р”РѕРєСѓРјРµРЅС‚ РїРѕСЃС‚Р°РІР»РµРЅ РІ РѕС‡РµСЂРµРґСЊ РЅР° AI-РїСЂРѕРІРµСЂРєСѓ.")
+    else:
+        messages.info(request, "AI-РїСЂРѕРІРµСЂРєР° СѓР¶Рµ РІС‹РїРѕР»РЅСЏРµС‚СЃСЏ.")
     return redirect("syllabus_detail", pk=syllabus.pk)
 
 
@@ -59,7 +63,7 @@ def run_check(request, syllabus_pk):
 def check_detail(request, pk):
     check = get_object_or_404(AiCheckResult, pk=pk)
     if not _can_view(request.user, check.syllabus):
-        raise PermissionDenied("Нет доступа к результату AI-проверки.")
+        raise PermissionDenied("РќРµС‚ РґРѕСЃС‚СѓРїР° Рє СЂРµР·СѓР»СЊС‚Р°С‚Сѓ AI-РїСЂРѕРІРµСЂРєРё.")
     return render(request, "ai_checker/check_detail.html", {"check": check})
 
 
@@ -73,7 +77,7 @@ def assistant_reply(request):
     if syllabus_id:
         syllabus = get_object_or_404(Syllabus, pk=syllabus_id)
         if not _can_view(request.user, syllabus):
-            raise PermissionDenied("Нет доступа к выбранному силлабусу.")
+            raise PermissionDenied("РќРµС‚ РґРѕСЃС‚СѓРїР° Рє РІС‹Р±СЂР°РЅРЅРѕРјСѓ СЃРёР»Р»Р°Р±СѓСЃСѓ.")
 
     if not message:
         return render(
@@ -81,7 +85,7 @@ def assistant_reply(request):
             "ai_checker/assistant_response.html",
             {
                 "question": "",
-                "answer": "Введите вопрос, чтобы получить ответ.",
+                "answer": "Р’РІРµРґРёС‚Рµ РІРѕРїСЂРѕСЃ, С‡С‚РѕР±С‹ РїРѕР»СѓС‡РёС‚СЊ РѕС‚РІРµС‚.",
                 "model_name": "",
             },
         )

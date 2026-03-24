@@ -1,0 +1,12 @@
+Новое объявление в AlmaU Syllabus
+
+Заголовок: {{ announcement.title }}
+Опубликовал: {{ author_name }}
+Роль: {{ author_role }}
+
+{{ announcement.body }}
+
+{% if dashboard_url %}Открыть в системе: {{ dashboard_url }}
+{% endif %}
+С уважением,
+AlmaU Syllabus

@@ -19,7 +19,7 @@ from accounts.views import (
     SecureLogoutView,
     SignupView,
 )
-from .views import create_announcement, dashboard
+from .views import create_announcement, dashboard, delete_announcement
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -79,6 +79,7 @@ urlpatterns = [
     # Дашборд
     path("dashboard/", dashboard, name="dashboard"),
     path("dashboard/announcements/new/", create_announcement, name="announcement_create"),
+    path("dashboard/announcements/<int:pk>/delete/", delete_announcement, name="announcement_delete"),
     
     # Приложения
     path("", include("core.urls")),

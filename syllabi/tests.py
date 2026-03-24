@@ -6,6 +6,7 @@ from django.urls import reverse
 from catalog.models import Course, Topic
 from syllabi.forms import SyllabusForm
 from syllabi.models import Syllabus, SyllabusTopic
+from workflow.models import SyllabusAuditLog, SyllabusStatusLog
 
 User = get_user_model()
 
@@ -329,6 +330,20 @@ class SyllabusRoleViewTests(TestCase):
         self.assertEqual(response.status_code, 302)
         syllabus.refresh_from_db()
         self.assertEqual(syllabus.status, Syllabus.Status.AI_CHECK)
+        self.assertTrue(
+            SyllabusStatusLog.objects.filter(
+                syllabus=syllabus,
+                from_status=Syllabus.Status.DRAFT,
+                to_status=Syllabus.Status.AI_CHECK,
+                changed_by=teacher,
+            ).exists()
+        )
+        self.assertTrue(
+            SyllabusAuditLog.objects.filter(
+                syllabus=syllabus,
+                action=SyllabusAuditLog.Action.STATUS_CHANGED,
+            ).exists()
+        )
 
     def test_send_to_ai_check_blocks_invalid_structure(self):
         teacher = self._create_user("teacher_send_ai_invalid", "teacher")
@@ -347,6 +362,53 @@ class SyllabusRoleViewTests(TestCase):
         self.assertEqual(response.status_code, 302)
         syllabus.refresh_from_db()
         self.assertEqual(syllabus.status, Syllabus.Status.DRAFT)
+
+    def test_syllabus_pdf_streams_uploaded_file_for_authorized_user(self):
+        teacher = self._create_user("teacher_pdf_owner", "teacher")
+        course = self._create_course(teacher, code="CS409B")
+        uploaded = SimpleUploadedFile(
+            "syllabus.pdf",
+            b"%PDF-1.4 test file",
+            content_type="application/pdf",
+        )
+        syllabus = Syllabus.objects.create(
+            course=course,
+            creator=teacher,
+            semester="Fall 2025",
+            academic_year="2025-2026",
+            status=Syllabus.Status.DRAFT,
+            pdf_file=uploaded,
+        )
+
+        self.client.force_login(teacher)
+        response = self.client.get(reverse("syllabus_pdf", args=[syllabus.pk]), {"download": "1"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "application/pdf")
+        self.assertIn("attachment;", response["Content-Disposition"])
+
+    def test_syllabus_pdf_forbids_unrelated_user(self):
+        teacher = self._create_user("teacher_pdf_private", "teacher")
+        outsider = self._create_user("teacher_pdf_outsider", "teacher")
+        course = self._create_course(teacher, code="CS409C")
+        uploaded = SimpleUploadedFile(
+            "syllabus.pdf",
+            b"%PDF-1.4 private file",
+            content_type="application/pdf",
+        )
+        syllabus = Syllabus.objects.create(
+            course=course,
+            creator=teacher,
+            semester="Fall 2025",
+            academic_year="2025-2026",
+            status=Syllabus.Status.DRAFT,
+            pdf_file=uploaded,
+        )
+
+        self.client.force_login(outsider)
+        response = self.client.get(reverse("syllabus_pdf", args=[syllabus.pk]))
+
+        self.assertEqual(response.status_code, 403)
 
     def test_syllabus_edit_topics_post_saves_syllabus_topic(self):
         teacher = self._create_user("teacher_edit_topics", "teacher")
@@ -498,3 +560,77 @@ class SyllabusRoleViewTests(TestCase):
         syllabus.refresh_from_db()
         self.assertEqual(syllabus.status, Syllabus.Status.DRAFT)
         self.assertEqual(syllabus.version_number, 1)
+
+    def test_draft_shared_syllabus_is_not_visible_to_outsider(self):
+        teacher = self._create_user("teacher_private_share", "teacher")
+        outsider = self._create_user("teacher_private_outsider", "teacher")
+        course = self._create_course(teacher, code="CS416")
+        syllabus = Syllabus.objects.create(
+            course=course,
+            creator=teacher,
+            semester="Fall 2025",
+            academic_year="2025-2026",
+            status=Syllabus.Status.DRAFT,
+            is_shared=True,
+        )
+
+        self.client.force_login(outsider)
+        response = self.client.get(reverse("syllabus_detail", args=[syllabus.pk]))
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_approved_shared_syllabus_is_visible_to_outsider(self):
+        teacher = self._create_user("teacher_public_share", "teacher")
+        outsider = self._create_user("teacher_public_outsider", "teacher")
+        course = self._create_course(teacher, code="CS417")
+        syllabus = Syllabus.objects.create(
+            course=course,
+            creator=teacher,
+            semester="Fall 2025",
+            academic_year="2025-2026",
+            status=Syllabus.Status.APPROVED,
+            is_shared=True,
+        )
+
+        self.client.force_login(outsider)
+        response = self.client.get(reverse("syllabus_detail", args=[syllabus.pk]))
+
+        self.assertEqual(response.status_code, 200)
+
+    def test_toggle_share_rejects_non_approved_syllabus(self):
+        teacher = self._create_user("teacher_share_guard", "teacher")
+        course = self._create_course(teacher, code="CS418")
+        syllabus = Syllabus.objects.create(
+            course=course,
+            creator=teacher,
+            semester="Fall 2025",
+            academic_year="2025-2026",
+            status=Syllabus.Status.DRAFT,
+            is_shared=False,
+        )
+
+        self.client.force_login(teacher)
+        response = self.client.post(reverse("syllabus_toggle_share", args=[syllabus.pk]))
+
+        self.assertEqual(response.status_code, 302)
+        syllabus.refresh_from_db()
+        self.assertFalse(syllabus.is_shared)
+
+    def test_toggle_share_requires_post(self):
+        teacher = self._create_user("teacher_share_method", "teacher")
+        course = self._create_course(teacher, code="CS419")
+        syllabus = Syllabus.objects.create(
+            course=course,
+            creator=teacher,
+            semester="Fall 2025",
+            academic_year="2025-2026",
+            status=Syllabus.Status.APPROVED,
+            is_shared=False,
+        )
+
+        self.client.force_login(teacher)
+        response = self.client.get(reverse("syllabus_toggle_share", args=[syllabus.pk]))
+
+        self.assertEqual(response.status_code, 405)
+        syllabus.refresh_from_db()
+        self.assertFalse(syllabus.is_shared)

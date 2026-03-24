@@ -263,14 +263,31 @@ _WEEK_LABEL_RE = re.compile(
     re.IGNORECASE,
 )
 _TABLE_WEEK_ROW_RE = re.compile(r"^\|?\s*(\d{1,2}(?:\s*[-\u2013\u2014]\s*\d{1,2})?)\s*\|")
-_YEAR_RE = re.compile(r"\b(19\d{2}|20\d{2})\b")
+_PLAIN_WEEK_ROW_RE = re.compile(r"^\s*(\d{1,2}(?:\s*[-\u2013\u2014]\s*\d{1,2})?)(?:\s+(.+))?$")
+_YEAR_RE = re.compile(r"(?<!\d)(19\d{2}|20\d{2})(?!\d)")
 _HOURS_WITH_UNIT_RE = re.compile(r"(-?\d+(?:[.,]\d+)?)\s*(?:hours?|hour|\u0447\u0430\u0441(?:\u0430|\u043e\u0432)?)\b", re.IGNORECASE)
 _PLAIN_NUMBER_RE = re.compile(r"^-?\d+(?:[.,]\d+)?$")
 _TIMESTAMP_RE = re.compile(r"\b\d{1,2}:\d{2}(?::\d{2})?\b")
+_NUMBERED_SECTION_RE = re.compile(r"^\s*\d+[\.\)]\s+")
 _SPEAKER_LINE_RE = re.compile(
     r"(?:^|\n)\s*(?:speaker|\u0441\u043f\u0438\u043a\u0435\u0440|\u0434\u043e\u043a\u043b\u0430\u0434\u0447\u0438\u043a|\u0432\u044b\u0441\u0442\u0443\u043f\u0430\u044e\u0449\u0438\u0439|\u0443\u0447\u0430\u0441\u0442\u043d\u0438\u043a)\s*[\w-]*\s*:",
     re.IGNORECASE,
 )
+_INLINE_LITERATURE_HEADER_EXCLUSIONS = (
+    "структура оценок",
+    "результат обучения",
+    "результат",
+    "задания",
+    "тема / модуль",
+    "assignment",
+    "assessment",
+)
+_LITERATURE_SUBSECTION_LABELS = {
+    "обязательная литература",
+    "дополнительная литература",
+    "main literature",
+    "additional literature",
+}
 
 _MIN_LITERATURE_YEAR = date.today().year - 3
 
@@ -463,6 +480,121 @@ def _extract_section_text(source_text: str, markers: tuple[str, ...], limit: int
     return " ".join(_extract_section_lines(source_text, markers, limit=limit)).strip()
 
 
+def _extract_numbered_section_lines(
+    source_text: str,
+    markers: tuple[str, ...],
+    limit: int = 80,
+    require_numbered_start: bool = False,
+) -> list[str]:
+    lines = source_text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
+    collected: list[str] = []
+
+    for index, raw_line in enumerate(lines):
+        if require_numbered_start and not _NUMBERED_SECTION_RE.match(raw_line):
+            continue
+        cleaned = _clean_markdown_line(raw_line)
+        lowered = cleaned.lower()
+        if not cleaned or not any(marker in lowered for marker in markers):
+            continue
+
+        for marker in markers:
+            marker_index = lowered.find(marker)
+            if marker_index == -1:
+                continue
+            tail = cleaned[marker_index + len(marker) :].lstrip(" :-|")
+            if tail and not _is_placeholder_text(tail):
+                collected.append(tail)
+            break
+
+        for follow_line in lines[index + 1 :]:
+            if len(collected) >= limit:
+                break
+            if _NUMBERED_SECTION_RE.match(follow_line) and _looks_like_heading(follow_line):
+                break
+            next_cleaned = _clean_markdown_line(follow_line)
+            if not next_cleaned:
+                if collected:
+                    continue
+                continue
+            collected.append(next_cleaned)
+        break
+
+    return [line for line in collected if line]
+
+
+def _extract_literature_lines(source_text: str, limit: int = 60) -> list[str]:
+    lines = source_text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
+    start_index = None
+    start_is_numbered = False
+    initial_tail = ""
+
+    for index, raw_line in enumerate(lines):
+        cleaned = _clean_markdown_line(raw_line)
+        lowered = cleaned.lower()
+        if not cleaned or not any(marker in lowered for marker in _LITERATURE_MARKERS):
+            continue
+        if any(marker in lowered for marker in _INLINE_LITERATURE_HEADER_EXCLUSIONS):
+            continue
+        start_index = index
+        start_is_numbered = bool(_NUMBERED_SECTION_RE.match(raw_line))
+        for marker in _LITERATURE_MARKERS:
+            marker_index = lowered.find(marker)
+            if marker_index == -1:
+                continue
+            initial_tail = cleaned[marker_index + len(marker) :].lstrip(" :-|")
+            break
+        if start_is_numbered:
+            break
+        if start_index is not None:
+            break
+
+    if start_index is None:
+        return []
+
+    collected: list[str] = []
+    current_item = ""
+    if initial_tail and not _is_placeholder_text(initial_tail):
+        current_item = initial_tail
+
+    for follow_line in lines[start_index + 1 :]:
+        if len(collected) >= limit:
+            break
+        if start_is_numbered and _NUMBERED_SECTION_RE.match(follow_line) and _looks_like_heading(follow_line):
+            break
+        if not start_is_numbered and _looks_like_heading(follow_line):
+            break
+
+        next_cleaned = _clean_markdown_line(follow_line)
+        if not next_cleaned:
+            continue
+
+        lowered = next_cleaned.lower()
+        if lowered in _LITERATURE_SUBSECTION_LABELS:
+            if current_item:
+                collected.append(current_item)
+                current_item = ""
+            continue
+        if any(marker in lowered for marker in _INLINE_LITERATURE_HEADER_EXCLUSIONS):
+            continue
+
+        is_numbered_item = bool(_NUMBERED_SECTION_RE.match(follow_line)) and not _looks_like_heading(follow_line)
+        if is_numbered_item:
+            if current_item:
+                collected.append(current_item)
+            current_item = next_cleaned
+            continue
+
+        if current_item:
+            current_item = f"{current_item} {next_cleaned}".strip()
+        else:
+            current_item = next_cleaned
+
+    if current_item:
+        collected.append(current_item)
+
+    return collected[:limit]
+
+
 def _normalize_topic(text: str) -> str:
     normalized = re.sub(r"[^a-zA-Z0-9\u0400-\u04ff]+", " ", (text or "").lower())
     return re.sub(r"\s+", " ", normalized).strip()
@@ -546,12 +678,20 @@ def _extract_week_entries(source_text: str, expected_weeks: int) -> list[dict]:
             hours_values = _parse_hours_values(cells[2:])
         else:
             label_match = _WEEK_LABEL_RE.search(stripped)
-            if not label_match:
-                continue
-            week_values = _expand_week_tokens(label_match.group(1), expected_weeks)
-            tail = stripped[label_match.end() :].lstrip(" :-|")
-            topic = _clean_markdown_line(tail)
-            hours_values = _parse_hours_values([stripped])
+            if label_match:
+                week_values = _expand_week_tokens(label_match.group(1), expected_weeks)
+                tail = stripped[label_match.end() :].lstrip(" :-|")
+                topic = _clean_markdown_line(tail)
+                hours_values = _parse_hours_values([stripped])
+            else:
+                plain_match = _PLAIN_WEEK_ROW_RE.match(stripped)
+                if not plain_match:
+                    continue
+                week_values = _expand_week_tokens(plain_match.group(1), expected_weeks)
+                topic = _clean_markdown_line(plain_match.group(2) or "")
+                if topic.startswith("%"):
+                    continue
+                hours_values = _parse_hours_values([stripped])
 
         if not week_values:
             continue
@@ -571,7 +711,8 @@ def _extract_week_entries(source_text: str, expected_weeks: int) -> list[dict]:
 
 
 def _build_formal_markdown_result(source_text: str, expected_weeks: int = DEFAULT_STUDY_WEEKS) -> dict:
-    issues: list[str] = []
+    blocking_issues: list[str] = []
+    advisory_notes: list[str] = []
 
     description_text = _extract_section_text(source_text, _DESCRIPTION_MARKERS, limit=20)
     goals_text = _extract_section_text(source_text, _GOAL_MARKERS, limit=20)
@@ -581,30 +722,38 @@ def _build_formal_markdown_result(source_text: str, expected_weeks: int = DEFAUL
     philosophy_text = _extract_section_text(source_text, _PHILOSOPHY_MARKERS, limit=20)
     academic_integrity_text = _extract_section_text(source_text, _ACADEMIC_INTEGRITY_MARKERS, limit=25)
     inclusive_text = _extract_section_text(source_text, _INCLUSIVE_MARKERS, limit=20)
-    topics_text = _extract_section_text(source_text, _TOPIC_MARKERS, limit=60)
-    literature_lines = _extract_section_lines(source_text, _LITERATURE_MARKERS, limit=60)
-    week_entries = _extract_week_entries(source_text, expected_weeks)
+    topics_lines = _extract_numbered_section_lines(
+        source_text,
+        _TOPIC_MARKERS,
+        limit=260,
+        require_numbered_start=True,
+    )
+    if not topics_lines:
+        topics_lines = _extract_section_lines(source_text, _TOPIC_MARKERS, limit=120)
+    topics_text = " ".join(topics_lines).strip()
+    literature_lines = _extract_literature_lines(source_text, limit=60)
+    week_entries = _extract_week_entries("\n".join(topics_lines), expected_weeks)
 
     if not description_text or _is_placeholder_text(description_text):
-        issues.append("\u041d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d \u0438\u043b\u0438 \u043d\u0435 \u0437\u0430\u043f\u043e\u043b\u043d\u0435\u043d \u0440\u0430\u0437\u0434\u0435\u043b '\u041a\u0440\u0430\u0442\u043a\u043e\u0435 \u043e\u043f\u0438\u0441\u0430\u043d\u0438\u0435 \u043a\u0443\u0440\u0441\u0430'.")
+        blocking_issues.append("\u041d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d \u0438\u043b\u0438 \u043d\u0435 \u0437\u0430\u043f\u043e\u043b\u043d\u0435\u043d \u0440\u0430\u0437\u0434\u0435\u043b '\u041a\u0440\u0430\u0442\u043a\u043e\u0435 \u043e\u043f\u0438\u0441\u0430\u043d\u0438\u0435 \u043a\u0443\u0440\u0441\u0430'.")
     if not goals_text or _is_placeholder_text(goals_text):
-        issues.append("\u041d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d \u0438\u043b\u0438 \u043d\u0435 \u0437\u0430\u043f\u043e\u043b\u043d\u0435\u043d \u0440\u0430\u0437\u0434\u0435\u043b '\u0426\u0435\u043b\u044c \u043a\u0443\u0440\u0441\u0430'.")
+        blocking_issues.append("\u041d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d \u0438\u043b\u0438 \u043d\u0435 \u0437\u0430\u043f\u043e\u043b\u043d\u0435\u043d \u0440\u0430\u0437\u0434\u0435\u043b '\u0426\u0435\u043b\u044c \u043a\u0443\u0440\u0441\u0430'.")
     if not outcomes_text or _is_placeholder_text(outcomes_text):
-        issues.append("\u041d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d \u0438\u043b\u0438 \u043d\u0435 \u0437\u0430\u043f\u043e\u043b\u043d\u0435\u043d \u0440\u0430\u0437\u0434\u0435\u043b '\u041e\u0436\u0438\u0434\u0430\u0435\u043c\u044b\u0435 \u0440\u0435\u0437\u0443\u043b\u044c\u0442\u0430\u0442\u044b' / learning outcomes.")
+        blocking_issues.append("\u041d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d \u0438\u043b\u0438 \u043d\u0435 \u0437\u0430\u043f\u043e\u043b\u043d\u0435\u043d \u0440\u0430\u0437\u0434\u0435\u043b '\u041e\u0436\u0438\u0434\u0430\u0435\u043c\u044b\u0435 \u0440\u0435\u0437\u0443\u043b\u044c\u0442\u0430\u0442\u044b' / learning outcomes.")
     if not methods_text or _is_placeholder_text(methods_text):
-        issues.append("\u041d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d \u0438\u043b\u0438 \u043d\u0435 \u0437\u0430\u043f\u043e\u043b\u043d\u0435\u043d \u0440\u0430\u0437\u0434\u0435\u043b '\u041c\u0435\u0442\u043e\u0434\u044b \u043e\u0431\u0443\u0447\u0435\u043d\u0438\u044f'.")
+        blocking_issues.append("\u041d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d \u0438\u043b\u0438 \u043d\u0435 \u0437\u0430\u043f\u043e\u043b\u043d\u0435\u043d \u0440\u0430\u0437\u0434\u0435\u043b '\u041c\u0435\u0442\u043e\u0434\u044b \u043e\u0431\u0443\u0447\u0435\u043d\u0438\u044f'.")
     if not philosophy_text or _is_placeholder_text(philosophy_text):
-        issues.append("\u041d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d \u0438\u043b\u0438 \u043d\u0435 \u0437\u0430\u043f\u043e\u043b\u043d\u0435\u043d \u0440\u0430\u0437\u0434\u0435\u043b '\u0424\u0438\u043b\u043e\u0441\u043e\u0444\u0438\u044f \u043f\u0440\u0435\u043f\u043e\u0434\u0430\u0432\u0430\u043d\u0438\u044f \u0438 \u043e\u0431\u0443\u0447\u0435\u043d\u0438\u044f'.")
+        blocking_issues.append("\u041d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d \u0438\u043b\u0438 \u043d\u0435 \u0437\u0430\u043f\u043e\u043b\u043d\u0435\u043d \u0440\u0430\u0437\u0434\u0435\u043b '\u0424\u0438\u043b\u043e\u0441\u043e\u0444\u0438\u044f \u043f\u0440\u0435\u043f\u043e\u0434\u0430\u0432\u0430\u043d\u0438\u044f \u0438 \u043e\u0431\u0443\u0447\u0435\u043d\u0438\u044f'.")
     if not policies_text or _is_placeholder_text(policies_text):
-        issues.append("\u041d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d \u0438\u043b\u0438 \u043d\u0435 \u0437\u0430\u043f\u043e\u043b\u043d\u0435\u043d \u0440\u0430\u0437\u0434\u0435\u043b '\u041f\u043e\u043b\u0438\u0442\u0438\u043a\u0430 \u043a\u0443\u0440\u0441\u0430'.")
+        blocking_issues.append("\u041d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d \u0438\u043b\u0438 \u043d\u0435 \u0437\u0430\u043f\u043e\u043b\u043d\u0435\u043d \u0440\u0430\u0437\u0434\u0435\u043b '\u041f\u043e\u043b\u0438\u0442\u0438\u043a\u0430 \u043a\u0443\u0440\u0441\u0430'.")
     if not academic_integrity_text or _is_placeholder_text(academic_integrity_text):
-        issues.append("\u041d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d \u0438\u043b\u0438 \u043d\u0435 \u0437\u0430\u043f\u043e\u043b\u043d\u0435\u043d \u0440\u0430\u0437\u0434\u0435\u043b '\u041f\u043e\u043b\u0438\u0442\u0438\u043a\u0430 \u0430\u043a\u0430\u0434\u0435\u043c\u0438\u0447\u0435\u0441\u043a\u043e\u0439 \u0447\u0435\u0441\u0442\u043d\u043e\u0441\u0442\u0438 \u0438 \u0438\u0441\u043f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u043d\u0438\u0435 \u0418\u0418'.")
+        blocking_issues.append("\u041d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d \u0438\u043b\u0438 \u043d\u0435 \u0437\u0430\u043f\u043e\u043b\u043d\u0435\u043d \u0440\u0430\u0437\u0434\u0435\u043b '\u041f\u043e\u043b\u0438\u0442\u0438\u043a\u0430 \u0430\u043a\u0430\u0434\u0435\u043c\u0438\u0447\u0435\u0441\u043a\u043e\u0439 \u0447\u0435\u0441\u0442\u043d\u043e\u0441\u0442\u0438 \u0438 \u0438\u0441\u043f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u043d\u0438\u0435 \u0418\u0418'.")
     if not inclusive_text or _is_placeholder_text(inclusive_text):
-        issues.append("\u041d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d \u0438\u043b\u0438 \u043d\u0435 \u0437\u0430\u043f\u043e\u043b\u043d\u0435\u043d \u0431\u043b\u043e\u043a \u043f\u0440\u043e \u0438\u043d\u043a\u043b\u044e\u0437\u0438\u0432\u043d\u043e\u0435 \u0430\u043a\u0430\u0434\u0435\u043c\u0438\u0447\u0435\u0441\u043a\u043e\u0435 \u0441\u043e\u043e\u0431\u0449\u0435\u0441\u0442\u0432\u043e.")
+        blocking_issues.append("\u041d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d \u0438\u043b\u0438 \u043d\u0435 \u0437\u0430\u043f\u043e\u043b\u043d\u0435\u043d \u0431\u043b\u043e\u043a \u043f\u0440\u043e \u0438\u043d\u043a\u043b\u044e\u0437\u0438\u0432\u043d\u043e\u0435 \u0430\u043a\u0430\u0434\u0435\u043c\u0438\u0447\u0435\u0441\u043a\u043e\u0435 \u0441\u043e\u043e\u0431\u0449\u0435\u0441\u0442\u0432\u043e.")
     if (not topics_text or _is_placeholder_text(topics_text)) and not week_entries:
-        issues.append("\u041d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d \u0438\u043b\u0438 \u043d\u0435 \u0437\u0430\u043f\u043e\u043b\u043d\u0435\u043d \u0440\u0430\u0437\u0434\u0435\u043b '\u0422\u0435\u043c\u0430\u0442\u0438\u0447\u0435\u0441\u043a\u0438\u0439 \u043f\u043b\u0430\u043d \u043f\u043e \u043d\u0435\u0434\u0435\u043b\u044f\u043c'.")
+        blocking_issues.append("\u041d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d \u0438\u043b\u0438 \u043d\u0435 \u0437\u0430\u043f\u043e\u043b\u043d\u0435\u043d \u0440\u0430\u0437\u0434\u0435\u043b '\u0422\u0435\u043c\u0430\u0442\u0438\u0447\u0435\u0441\u043a\u0438\u0439 \u043f\u043b\u0430\u043d \u043f\u043e \u043d\u0435\u0434\u0435\u043b\u044f\u043c'.")
     if not literature_lines:
-        issues.append("\u041d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d \u0438\u043b\u0438 \u043d\u0435 \u0437\u0430\u043f\u043e\u043b\u043d\u0435\u043d \u0440\u0430\u0437\u0434\u0435\u043b '\u0421\u043f\u0438\u0441\u043e\u043a \u043b\u0438\u0442\u0435\u0440\u0430\u0442\u0443\u0440\u044b'.")
+        blocking_issues.append("\u041d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d \u0438\u043b\u0438 \u043d\u0435 \u0437\u0430\u043f\u043e\u043b\u043d\u0435\u043d \u0440\u0430\u0437\u0434\u0435\u043b '\u0421\u043f\u0438\u0441\u043e\u043a \u043b\u0438\u0442\u0435\u0440\u0430\u0442\u0443\u0440\u044b'.")
 
     if literature_lines:
         outdated_sources: list[str] = []
@@ -619,19 +768,19 @@ def _build_formal_markdown_result(source_text: str, expected_weeks: int = DEFAUL
                 outdated_sources.append(f"{line} (\u0433\u043e\u0434: {latest_year})")
 
         for item in outdated_sources[:5]:
-            issues.append(f"\u0418\u0441\u0442\u043e\u0447\u043d\u0438\u043a \u043b\u0438\u0442\u0435\u0440\u0430\u0442\u0443\u0440\u044b \u0441\u0442\u0430\u0440\u0448\u0435 3 \u043b\u0435\u0442 \u0438 \u0442\u0440\u0435\u0431\u0443\u0435\u0442 \u043e\u0431\u043d\u043e\u0432\u043b\u0435\u043d\u0438\u044f: {item}.")
+            advisory_notes.append(f"\u0418\u0441\u0442\u043e\u0447\u043d\u0438\u043a \u043b\u0438\u0442\u0435\u0440\u0430\u0442\u0443\u0440\u044b \u0441\u0442\u0430\u0440\u0448\u0435 3 \u043b\u0435\u0442 \u0438 \u0442\u0440\u0435\u0431\u0443\u0435\u0442 \u043e\u0431\u043d\u043e\u0432\u043b\u0435\u043d\u0438\u044f: {item}.")
         for item in yearless_sources[:3]:
-            issues.append(f"\u0423 \u0438\u0441\u0442\u043e\u0447\u043d\u0438\u043a\u0430 \u043b\u0438\u0442\u0435\u0440\u0430\u0442\u0443\u0440\u044b \u043d\u0435 \u0443\u043a\u0430\u0437\u0430\u043d \u0433\u043e\u0434, \u043f\u043e\u044d\u0442\u043e\u043c\u0443 \u0430\u043a\u0442\u0443\u0430\u043b\u044c\u043d\u043e\u0441\u0442\u044c \u043d\u0435\u043b\u044c\u0437\u044f \u043f\u0440\u043e\u0432\u0435\u0440\u0438\u0442\u044c: {item}.")
+            advisory_notes.append(f"\u0423 \u0438\u0441\u0442\u043e\u0447\u043d\u0438\u043a\u0430 \u043b\u0438\u0442\u0435\u0440\u0430\u0442\u0443\u0440\u044b \u043d\u0435 \u0443\u043a\u0430\u0437\u0430\u043d \u0433\u043e\u0434, \u043f\u043e\u044d\u0442\u043e\u043c\u0443 \u0430\u043a\u0442\u0443\u0430\u043b\u044c\u043d\u043e\u0441\u0442\u044c \u043d\u0435\u043b\u044c\u0437\u044f \u043f\u0440\u043e\u0432\u0435\u0440\u0438\u0442\u044c: {item}.")
 
     unique_weeks = sorted({entry["week"] for entry in week_entries})
     if week_entries:
         missing_weeks = [str(week) for week in range(1, expected_weeks + 1) if week not in unique_weeks]
         if missing_weeks:
-            issues.append(
+            blocking_issues.append(
                 "\u0412 \u0442\u0435\u043c\u0430\u0442\u0438\u0447\u0435\u0441\u043a\u043e\u043c \u043f\u043b\u0430\u043d\u0435 \u043e\u0442\u0441\u0443\u0442\u0441\u0442\u0432\u0443\u044e\u0442 \u043d\u0435\u0434\u0435\u043b\u0438: " + ", ".join(missing_weeks) + "."
             )
     elif topics_text and not _is_placeholder_text(topics_text):
-        issues.append(
+        blocking_issues.append(
             "\u0422\u0435\u043c\u0430\u0442\u0438\u0447\u0435\u0441\u043a\u0438\u0439 \u043f\u043b\u0430\u043d \u043d\u0430\u0439\u0434\u0435\u043d, \u043d\u043e \u043d\u0435\u0434\u0435\u043b\u0438 \u043d\u0435 \u0440\u0430\u0441\u043f\u043e\u0437\u043d\u0430\u043d\u044b. \u0418\u0441\u043f\u043e\u043b\u044c\u0437\u0443\u0439\u0442\u0435 \u044f\u0432\u043d\u044b\u0435 \u043d\u043e\u043c\u0435\u0440\u0430 \u043d\u0435\u0434\u0435\u043b\u044c \u0438\u043b\u0438 \u0434\u0438\u0430\u043f\u0430\u0437\u043e\u043d\u044b \u0432\u0440\u043e\u0434\u0435 1-2, 3-4, 10-12."
         )
 
@@ -656,18 +805,30 @@ def _build_formal_markdown_result(source_text: str, expected_weeks: int = DEFAUL
             )
 
     for item in duplicate_topics[:5]:
-        issues.append("\u041e\u0431\u043d\u0430\u0440\u0443\u0436\u0435\u043d\u043e \u0434\u0443\u0431\u043b\u0438\u0440\u043e\u0432\u0430\u043d\u0438\u0435 \u0442\u0435\u043c: " + item + ".")
+        advisory_notes.append("\u041e\u0431\u043d\u0430\u0440\u0443\u0436\u0435\u043d\u043e \u0434\u0443\u0431\u043b\u0438\u0440\u043e\u0432\u0430\u043d\u0438\u0435 \u0442\u0435\u043c: " + item + ".")
     for item in zero_or_negative_hours[:5]:
-        issues.append("\u041d\u0430\u0439\u0434\u0435\u043d\u044b \u043d\u0435\u043a\u043e\u0440\u0440\u0435\u043a\u0442\u043d\u044b\u0435 \u0447\u0430\u0441\u044b \u043f\u043e \u0442\u0435\u043c\u0430\u043c: " + item + ".")
+        blocking_issues.append("\u041d\u0430\u0439\u0434\u0435\u043d\u044b \u043d\u0435\u043a\u043e\u0440\u0440\u0435\u043a\u0442\u043d\u044b\u0435 \u0447\u0430\u0441\u044b \u043f\u043e \u0442\u0435\u043c\u0430\u043c: " + item + ".")
 
-    if issues:
-        summary = f"\u0424\u043e\u0440\u043c\u0430\u043b\u044c\u043d\u0430\u044f \u043f\u0440\u043e\u0432\u0435\u0440\u043a\u0430 AlmaU: \u043d\u0430\u0439\u0434\u0435\u043d\u043e {len(issues)} \u0437\u0430\u043c\u0435\u0447\u0430\u043d\u0438\u0439."
-        items_html = "".join(f"<li>{html.escape(issue)}</li>" for issue in issues)
+    if blocking_issues:
+        all_notes = blocking_issues + advisory_notes
+        summary = f"\u0424\u043e\u0440\u043c\u0430\u043b\u044c\u043d\u0430\u044f \u043f\u0440\u043e\u0432\u0435\u0440\u043a\u0430 AlmaU: \u043d\u0430\u0439\u0434\u0435\u043d\u043e {len(blocking_issues)} \u043a\u0440\u0438\u0442\u0438\u0447\u043d\u044b\u0445 \u0437\u0430\u043c\u0435\u0447\u0430\u043d\u0438\u0439."
+        items_html = "".join(f"<li>{html.escape(issue)}</li>" for issue in all_notes)
         feedback = f"<h3>Summary</h3><p>{html.escape(summary)}</p><ul>{items_html}</ul>"
         return {
             "approved": False,
             "feedback": feedback,
             "raw_response": "formal-markdown-check:issues",
+            "model_name": "markitdown-rules-v2",
+        }
+
+    if advisory_notes:
+        summary = f"\u0424\u043e\u0440\u043c\u0430\u043b\u044c\u043d\u0430\u044f \u043f\u0440\u043e\u0432\u0435\u0440\u043a\u0430 AlmaU: \u043a\u0440\u0438\u0442\u0438\u0447\u043d\u044b\u0445 \u0437\u0430\u043c\u0435\u0447\u0430\u043d\u0438\u0439 \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d\u043e, \u043d\u043e \u0435\u0441\u0442\u044c {len(advisory_notes)} \u0440\u0435\u043a\u043e\u043c\u0435\u043d\u0434\u0430\u0446\u0438\u0438."
+        items_html = "".join(f"<li>{html.escape(issue)}</li>" for issue in advisory_notes)
+        feedback = f"<h3>Summary</h3><p>{html.escape(summary)}</p><ul>{items_html}</ul>"
+        return {
+            "approved": True,
+            "feedback": feedback,
+            "raw_response": "formal-markdown-check:approved-with-recommendations",
             "model_name": "markitdown-rules-v2",
         }
 

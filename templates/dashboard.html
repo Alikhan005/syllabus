@@ -287,11 +287,24 @@
         <div class="announcement-list">
           {% for item in announcements %}
             <article class="announcement-item">
-              <div class="announcement-title">{{ item.title }}</div>
-              <div class="announcement-meta">
-                {{ item.created_at|date:"d.m.Y H:i" }}
-                {% if item.created_by %}
-                  • {{ item.created_by.get_full_name|default:item.created_by.username }}
+              <div class="announcement-item__header" style="display:flex; align-items:flex-start; justify-content:space-between; gap:0.85rem;">
+                <div class="announcement-item__heading" style="flex:1; min-width:0; display:grid; gap:0.35rem;">
+                  <div class="announcement-title">{{ item.title }}</div>
+                  <div class="announcement-meta" style="display:flex; align-items:center; gap:0.45rem; flex-wrap:wrap; margin:0;">
+                    <span class="announcement-meta__date">{{ item.created_at|date:"d.m.Y H:i" }}</span>
+                    <span style="color:#94a3b8;">•</span>
+                    <span class="announcement-role-badge" style="display:inline-flex; align-items:center; padding:0.2rem 0.55rem; border-radius:999px; background:linear-gradient(135deg, rgba(15, 118, 110, 0.12), rgba(37, 99, 235, 0.08)); border:1px solid rgba(15, 118, 110, 0.16); color:#0b5853; font-size:0.69rem; font-weight:700; letter-spacing:0.04em; text-transform:uppercase;">{{ item.author_role_label }}</span>
+                    <span style="color:#94a3b8;">•</span>
+                    <span class="announcement-meta__author">{{ item.author_name }}</span>
+                  </div>
+                </div>
+                {% if item.can_delete %}
+                  <form method="post" action="{% url 'announcement_delete' item.pk %}" class="announcement-delete-form" style="margin:0; flex-shrink:0;">
+                    {% csrf_token %}
+                    <button type="submit" class="announcement-delete-button" title="Удалить объявление" aria-label="Удалить объявление" style="border:1px solid rgba(239, 68, 68, 0.18); border-radius:999px; background:rgba(239, 68, 68, 0.12); color:#b91c1c; display:inline-flex; align-items:center; justify-content:center; min-height:2rem; padding:0.38rem 0.72rem; font-size:0.76rem; font-weight:700; line-height:1; box-shadow:0 8px 18px rgba(127, 29, 29, 0.08); cursor:pointer;">
+                      Удалить
+                    </button>
+                  </form>
                 {% endif %}
               </div>
               <div class="announcement-body">{{ item.body|linebreaksbr }}</div>

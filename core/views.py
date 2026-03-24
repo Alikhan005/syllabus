@@ -34,6 +34,52 @@ def _can_access_diagnostics(user) -> bool:
     )
 
 
+def _set_check_failed(result: dict, name: str, error: str) -> None:
+    result["status"] = "fail"
+    result["checks"][name] = f"fail: {error}"
+
+
+def _check_migrations(result: dict) -> None:
+    try:
+        executor = MigrationExecutor(connection)
+        plan = executor.migration_plan(executor.loader.graph.leaf_nodes())
+        if plan:
+            pending = [f"{m.app_label}.{m.name}" for m, _ in plan][:10]
+            msg = "pending " + ", ".join(pending)
+            if len(plan) > len(pending):
+                msg += f" (+{len(plan) - len(pending)} more)"
+            _set_check_failed(result, "migrations", msg)
+        else:
+            result["checks"]["migrations"] = "ok"
+    except Exception as exc:
+        _set_check_failed(result, "migrations", f"{type(exc).__name__}: {exc}")
+
+
+def _check_media_root(result: dict) -> None:
+    try:
+        path = Path(settings.MEDIA_ROOT) / "diag_test.txt"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("ok", encoding="utf-8")
+        path.unlink(missing_ok=True)
+        result["checks"]["media"] = "ok"
+    except Exception as exc:
+        _set_check_failed(result, "media", f"{type(exc).__name__}: {exc}")
+
+
+def _check_pdf_renderer(result: dict) -> None:
+    try:
+        from weasyprint import HTML  # type: ignore
+
+        buffer = BytesIO()
+        HTML(string="<html><body>ok</body></html>").write_pdf(target=buffer)
+        if buffer.getbuffer().nbytes == 0:
+            _set_check_failed(result, "pdf", "empty output")
+        else:
+            result["checks"]["pdf"] = "ok"
+    except Exception as exc:
+        _set_check_failed(result, "pdf", f"{type(exc).__name__}: {exc}")
+
+
 def healthz(request):
     checks = {
         "status": "ok",
@@ -61,17 +107,13 @@ def diagnostics(request):
         "debug": settings.DEBUG,
     }
 
-    def fail(name, msg):
-        result["status"] = "fail"
-        result["checks"][name] = f"fail: {msg}"
-
     keys = _env_keys()
     if not keys:
         result["checks"]["env"] = "skip"
     else:
         missing = [key for key in keys if not os.getenv(key)]
         if missing:
-            fail("env", f"missing {', '.join(missing)}")
+            _set_check_failed(result, "env", f"missing {', '.join(missing)}")
         else:
             result["checks"]["env"] = "ok"
 
@@ -81,45 +123,15 @@ def diagnostics(request):
         result["checks"]["db"] = "ok"
     except Exception as exc:
         db_ok = False
-        fail("db", f"{type(exc).__name__}: {exc}")
+        _set_check_failed(result, "db", f"{type(exc).__name__}: {exc}")
 
     if db_ok:
-        try:
-            executor = MigrationExecutor(connection)
-            plan = executor.migration_plan(executor.loader.graph.leaf_nodes())
-            if plan:
-                pending = [f"{m.app_label}.{m.name}" for m, _ in plan][:10]
-                msg = "pending " + ", ".join(pending)
-                if len(plan) > len(pending):
-                    msg += f" (+{len(plan) - len(pending)} more)"
-                fail("migrations", msg)
-            else:
-                result["checks"]["migrations"] = "ok"
-        except Exception as exc:
-            fail("migrations", f"{type(exc).__name__}: {exc}")
+        _check_migrations(result)
     else:
         result["checks"]["migrations"] = "skip: db unavailable"
 
-    try:
-        path = Path(settings.MEDIA_ROOT) / "diag_test.txt"
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text("ok", encoding="utf-8")
-        path.unlink(missing_ok=True)
-        result["checks"]["media"] = "ok"
-    except Exception as exc:
-        fail("media", f"{type(exc).__name__}: {exc}")
-
-    try:
-        from weasyprint import HTML  # type: ignore
-
-        buffer = BytesIO()
-        HTML(string="<html><body>ok</body></html>").write_pdf(target=buffer)
-        if buffer.getbuffer().nbytes == 0:
-            fail("pdf", "empty output")
-        else:
-            result["checks"]["pdf"] = "ok"
-    except Exception as exc:
-        fail("pdf", f"{type(exc).__name__}: {exc}")
+    _check_media_root(result)
+    _check_pdf_renderer(result)
 
     code = 200 if result["status"] == "ok" else 500
     return JsonResponse(result, status=code)

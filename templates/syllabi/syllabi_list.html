@@ -79,7 +79,7 @@
         </td>
         <td class="p-4 text-right flex justify-end gap-2 responsive-table__actions" data-label="Действия">
           {% if syllabus.pdf_file %}
-            <a href="{{ syllabus.pdf_file.url }}" target="_blank" class="text-slate-400 hover:text-blue-600 p-1" title="Скачать PDF">
+            <a href="{% url 'syllabus_pdf' syllabus.pk %}" target="_blank" class="text-slate-400 hover:text-blue-600 p-1" title="Скачать PDF">
                 <i class="fa-regular fa-file-pdf"></i>
             </a>
           {% endif %}

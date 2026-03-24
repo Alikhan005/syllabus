@@ -9,6 +9,21 @@ User = get_user_model()
 
 
 class AccountFormsTests(TestCase):
+    def test_signup_form_exposes_demo_roles(self):
+        form = SignupForm()
+
+        allowed_roles = {value for value, _ in form.fields["role"].choices}
+
+        self.assertEqual(
+            allowed_roles,
+            {
+                User.Role.TEACHER,
+                User.Role.PROGRAM_LEADER,
+                User.Role.DEAN,
+                User.Role.UMU,
+            },
+        )
+
     def test_password_reset_accepts_username_identifier(self):
         user = User.objects.create_user(
             username="reset_user",
@@ -50,6 +65,23 @@ class AccountFormsTests(TestCase):
 
         self.assertFalse(form.is_valid())
         self.assertIn("username", form.errors)
+
+    def test_signup_form_accepts_reviewer_role_for_demo(self):
+        form = SignupForm(
+            data={
+                "username": "reviewer_attempt",
+                "first_name": "Dean",
+                "last_name": "Attempt",
+                "email": "reviewer_attempt@example.com",
+                "role": User.Role.DEAN,
+                "faculty": "",
+                "department": "",
+                "password1": "StrongPass123!",
+                "password2": "StrongPass123!",
+            }
+        )
+
+        self.assertTrue(form.is_valid())
 
 
 class LogoutSecurityTests(TestCase):

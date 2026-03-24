@@ -1,4 +1,5 @@
 import os
+import sys
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 
@@ -11,6 +12,7 @@ except Exception:  # pragma: no cover - optional dependency
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 AI_MODELS_DIR = os.path.join(BASE_DIR, 'ai_models')
+RUNNING_TESTS = any(arg == "test" for arg in sys.argv[1:])
 
 # Загружаем .env автоматически
 if load_dotenv:
@@ -180,7 +182,22 @@ WSGI_APPLICATION = "config.wsgi.application"
 
 USE_DATABASE_URL = _env_bool("DJANGO_USE_DATABASE_URL", not DEBUG)
 DATABASE_URL = os.getenv("DATABASE_URL")
-if USE_DATABASE_URL and DATABASE_URL:
+TEST_DATABASE_URL = os.getenv("DJANGO_TEST_DATABASE_URL") if RUNNING_TESTS else None
+TEST_USE_SQLITE = RUNNING_TESTS and _env_bool("DJANGO_TEST_USE_SQLITE", True)
+
+# Keep local test runs self-contained unless a dedicated test DB is configured.
+if TEST_DATABASE_URL:
+    DATABASES = {"default": _database_from_url(TEST_DATABASE_URL)}
+elif TEST_USE_SQLITE:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": _ensure_sqlite_dir(
+                os.getenv("DJANGO_TEST_DB_NAME", str(BASE_DIR / "test_db.sqlite3"))
+            ),
+        }
+    }
+elif USE_DATABASE_URL and DATABASE_URL:
     DATABASES = {"default": _database_from_url(DATABASE_URL)}
 else:
     DB_ENGINE = os.getenv("DB_ENGINE", "django.db.backends.sqlite3")
@@ -245,7 +262,13 @@ STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 # Медиа-файлы
 MEDIA_URL = "/media/"
-MEDIA_ROOT = BASE_DIR / "media"
+# Allow production deploys to mount a persistent media directory.
+MEDIA_ROOT = Path(
+    os.getenv("DJANGO_MEDIA_ROOT")
+    or os.getenv("MEDIA_ROOT")
+    or (BASE_DIR / "media")
+)
+MEDIA_ROOT.mkdir(parents=True, exist_ok=True)
 
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"

@@ -5,7 +5,7 @@ from django.test import TestCase
 from catalog.models import Course
 from syllabi.models import Syllabus
 from workflow.models import SyllabusAuditLog, SyllabusStatusLog
-from workflow.services import change_status, change_status_system
+from workflow.services import change_status, change_status_system, queue_for_ai_check
 
 User = get_user_model()
 
@@ -141,7 +141,10 @@ class WorkflowRoleTests(TestCase):
             semester="Fall 2025",
             academic_year="2025-2026",
             status=Syllabus.Status.AI_CHECK,
+            ai_claimed_by="pid:999",
         )
+        syllabus.ai_claimed_at = syllabus.created_at
+        syllabus.save(update_fields=["ai_claimed_at"])
 
         change_status_system(
             syllabus,
@@ -153,6 +156,8 @@ class WorkflowRoleTests(TestCase):
         syllabus.refresh_from_db()
         self.assertEqual(syllabus.status, Syllabus.Status.REVIEW_DEAN)
         self.assertEqual(syllabus.ai_feedback, "<p>OK</p>")
+        self.assertIsNone(syllabus.ai_claimed_at)
+        self.assertEqual(syllabus.ai_claimed_by, "")
 
         status_log = SyllabusStatusLog.objects.filter(syllabus=syllabus).latest("changed_at")
         self.assertEqual(status_log.from_status, Syllabus.Status.AI_CHECK)
@@ -186,6 +191,8 @@ class WorkflowRoleTests(TestCase):
         syllabus.refresh_from_db()
         self.assertEqual(syllabus.status, Syllabus.Status.CORRECTION)
         self.assertEqual(syllabus.ai_feedback, "<p>Need improvements</p>")
+        self.assertIsNone(syllabus.ai_claimed_at)
+        self.assertEqual(syllabus.ai_claimed_by, "")
 
     def test_manual_correction_keeps_existing_ai_feedback(self):
         teacher = self._create_user("teacher_manual_feedback", "teacher")
@@ -205,3 +212,43 @@ class WorkflowRoleTests(TestCase):
         syllabus.refresh_from_db()
         self.assertEqual(syllabus.status, Syllabus.Status.CORRECTION)
         self.assertEqual(syllabus.ai_feedback, "<p>AI baseline feedback</p>")
+
+    def test_queue_for_ai_check_creates_logs_and_clears_claim(self):
+        teacher = self._create_user("teacher_queue", "teacher")
+        course = self._create_course(teacher, code="CS407")
+        syllabus = Syllabus.objects.create(
+            course=course,
+            creator=teacher,
+            semester="Fall 2025",
+            academic_year="2025-2026",
+            status=Syllabus.Status.DRAFT,
+            ai_feedback="<p>Old feedback</p>",
+            ai_claimed_by="pid:123",
+        )
+
+        syllabus.ai_claimed_at = syllabus.created_at
+        syllabus.save(update_fields=["ai_claimed_at"])
+
+        queued_syllabus, queued_now = queue_for_ai_check(
+            teacher,
+            syllabus,
+            comment="Queued from test.",
+        )
+
+        queued_syllabus.refresh_from_db()
+        self.assertTrue(queued_now)
+        self.assertEqual(queued_syllabus.status, Syllabus.Status.AI_CHECK)
+        self.assertEqual(queued_syllabus.ai_feedback, "")
+        self.assertIsNone(queued_syllabus.ai_claimed_at)
+        self.assertEqual(queued_syllabus.ai_claimed_by, "")
+
+        status_log = SyllabusStatusLog.objects.filter(syllabus=queued_syllabus).latest("changed_at")
+        self.assertEqual(status_log.from_status, Syllabus.Status.DRAFT)
+        self.assertEqual(status_log.to_status, Syllabus.Status.AI_CHECK)
+        self.assertEqual(status_log.changed_by, teacher)
+
+        audit = SyllabusAuditLog.objects.filter(
+            syllabus=queued_syllabus,
+            action=SyllabusAuditLog.Action.STATUS_CHANGED,
+        ).latest("created_at")
+        self.assertEqual(audit.metadata.get("source"), "ai_queue")

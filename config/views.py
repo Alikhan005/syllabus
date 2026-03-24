@@ -2,10 +2,11 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.db.models import Prefetch
-from django.shortcuts import redirect, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from catalog.models import Course
+from core.announcements import announcement_author_role_label, send_announcement_email
 from core.forms import AnnouncementForm
 from core.models import Announcement
 from core.notifications import build_dashboard_notifications, count_unread_notifications
@@ -53,8 +54,14 @@ def _build_dashboard_context(request, announcement_form=None):
     shared_courses_count = Course.objects.filter(is_shared=True).count()
     syllabi_count = Syllabus.objects.filter(creator=request.user).count()
     shared_syllabi_count = shared_syllabi_queryset(request.user).count()
-    announcements = Announcement.objects.select_related("created_by").all()[:6]
+    announcements = list(Announcement.objects.select_related("created_by").all()[:6])
     can_manage_announcements = _can_manage_announcements(request.user)
+    for item in announcements:
+        item.can_delete = request.user.can_delete_announcement(item)
+        item.author_role_label = announcement_author_role_label(item.created_by)
+        item.author_name = (
+            item.created_by.get_full_name() or item.created_by.username if item.created_by else "Система"
+        )
 
     pending_dean = Syllabus.objects.none()
     pending_umu = Syllabus.objects.none()
@@ -147,9 +154,39 @@ def create_announcement(request):
         announcement = form.save(commit=False)
         announcement.created_by = request.user
         announcement.save()
-        messages.success(request, "Объявление опубликовано.")
+
+        try:
+            sent_count = send_announcement_email(announcement, request=request)
+        except Exception:
+            messages.warning(
+                request,
+                "Объявление опубликовано, но отправка писем не удалась. Проверьте почтовые настройки.",
+            )
+        else:
+            if sent_count:
+                messages.success(
+                    request,
+                    f"Объявление опубликовано и отправлено на почту {sent_count} получателям.",
+                )
+            else:
+                messages.success(
+                    request,
+                    "Объявление опубликовано, но активных получателей с email не найдено.",
+                )
         return redirect("dashboard")
 
     messages.error(request, "Заполните заголовок и текст.")
     context = _build_dashboard_context(request, announcement_form=form)
     return render(request, "dashboard.html", context)
+
+
+@login_required
+@require_POST
+def delete_announcement(request, pk):
+    announcement = get_object_or_404(Announcement, pk=pk)
+    if not request.user.can_delete_announcement(announcement):
+        raise PermissionDenied("Недостаточно прав для удаления объявления.")
+
+    announcement.delete()
+    messages.success(request, "Объявление удалено.")
+    return redirect("dashboard")

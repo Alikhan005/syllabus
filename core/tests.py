@@ -2,9 +2,12 @@ from pathlib import Path
 
 from django.contrib.auth import get_user_model
 from django.conf import settings
+from django.core import mail
 from django.test import SimpleTestCase, TestCase
+from django.test import override_settings
 from django.urls import reverse
 
+from core.announcements import announcement_author_role_label
 from catalog.models import Course
 from syllabi.models import Syllabus
 from workflow.services import change_status
@@ -222,3 +225,176 @@ class DashboardNotificationsTests(TestCase):
     def test_mark_notifications_read_requires_authentication(self):
         response = self.client.post(reverse("notifications_mark_read"))
         self.assertEqual(response.status_code, 302)
+
+
+@override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
+class AnnouncementEmailTests(TestCase):
+    def test_dean_announcement_is_emailed_to_teachers_and_program_leaders(self):
+        dean = User.objects.create_user(
+            username="dean_announce",
+            password="pass1234",
+            role="dean",
+            email="dean@example.com",
+        )
+        teacher = User.objects.create_user(
+            username="teacher_announce",
+            password="pass1234",
+            role="teacher",
+            email="teacher@example.com",
+        )
+        program_leader = User.objects.create_user(
+            username="pl_announce",
+            password="pass1234",
+            role="program_leader",
+            email="pl@example.com",
+        )
+        User.objects.create_user(
+            username="umu_announce",
+            password="pass1234",
+            role="umu",
+            email="umu@example.com",
+        )
+
+        self.client.force_login(dean)
+        response = self.client.post(
+            reverse("announcement_create"),
+            {
+                "title": "Важное объявление",
+                "body": "Проверьте обновленные требования.",
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(len(mail.outbox), 1)
+
+        sent_message = mail.outbox[0]
+        self.assertEqual(sent_message.subject, "Новое объявление: Важное объявление")
+        self.assertEqual(set(sent_message.bcc), {teacher.email, program_leader.email})
+        self.assertNotIn(dean.email, sent_message.bcc)
+        self.assertEqual(len(sent_message.alternatives), 1)
+        html_body, mime_type = sent_message.alternatives[0]
+        self.assertEqual(mime_type, "text/html")
+        self.assertIn("Важное объявление", html_body)
+        self.assertIn("Открыть в системе", html_body)
+
+
+    def test_email_mentions_author_role_and_name(self):
+        dean = User.objects.create_user(
+            username="dean_announce_role",
+            password="pass1234",
+            role="dean",
+            first_name="Айжан",
+            last_name="Серикова",
+            email="dean-role@example.com",
+        )
+        User.objects.create_user(
+            username="teacher_announce_role",
+            password="pass1234",
+            role="teacher",
+            email="teacher-role@example.com",
+        )
+
+        self.client.force_login(dean)
+        response = self.client.post(
+            reverse("announcement_create"),
+            {
+                "title": "Проверка роли",
+                "body": "Покажите роль автора в письме.",
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(len(mail.outbox), 1)
+        sent_message = mail.outbox[0]
+        html_body, mime_type = sent_message.alternatives[0]
+
+        self.assertEqual(mime_type, "text/html")
+        self.assertIn(dean.get_role_display(), html_body)
+        self.assertIn(dean.get_role_display(), sent_message.body)
+        self.assertIn(dean.get_full_name(), html_body)
+
+
+class AnnouncementDashboardTests(TestCase):
+    def test_dashboard_shows_author_role_for_announcements(self):
+        umu = User.objects.create_user(
+            username="umu_dashboard_announcement",
+            password="pass1234",
+            role="umu",
+            first_name="Алия",
+            last_name="Нурбек",
+        )
+        teacher = User.objects.create_user(
+            username="teacher_dashboard_announcement",
+            password="pass1234",
+            role="teacher",
+        )
+        umu.announcements.create(
+            title="Новое правило",
+            body="Проверьте обновленные сроки.",
+        )
+
+        self.client.force_login(teacher)
+        response = self.client.get(reverse("dashboard"))
+        content = response.content.decode("utf-8", errors="strict")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(announcement_author_role_label(umu), content)
+        self.assertIn(umu.get_full_name(), content)
+
+
+class AnnouncementDeleteTests(TestCase):
+    def test_author_can_delete_own_announcement(self):
+        dean = User.objects.create_user(
+            username="dean_delete_own",
+            password="pass1234",
+            role="dean",
+        )
+        announcement = dean.announcements.create(
+            title="Удаляемое объявление",
+            body="Текст объявления",
+        )
+
+        self.client.force_login(dean)
+        response = self.client.post(reverse("announcement_delete", args=[announcement.pk]))
+
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(type(announcement).objects.filter(pk=announcement.pk).exists())
+
+    def test_other_reviewer_cannot_delete_foreign_announcement(self):
+        dean = User.objects.create_user(
+            username="dean_delete_author",
+            password="pass1234",
+            role="dean",
+        )
+        umu = User.objects.create_user(
+            username="umu_delete_foreign",
+            password="pass1234",
+            role="umu",
+        )
+        announcement = dean.announcements.create(
+            title="Чужое объявление",
+            body="Текст объявления",
+        )
+
+        self.client.force_login(umu)
+        response = self.client.post(reverse("announcement_delete", args=[announcement.pk]))
+
+        self.assertEqual(response.status_code, 403)
+        self.assertTrue(type(announcement).objects.filter(pk=announcement.pk).exists())
+
+    def test_delete_requires_post(self):
+        dean = User.objects.create_user(
+            username="dean_delete_method",
+            password="pass1234",
+            role="dean",
+        )
+        announcement = dean.announcements.create(
+            title="Метод удаления",
+            body="Текст объявления",
+        )
+
+        self.client.force_login(dean)
+        response = self.client.get(reverse("announcement_delete", args=[announcement.pk]))
+
+        self.assertEqual(response.status_code, 405)
+        self.assertTrue(type(announcement).objects.filter(pk=announcement.pk).exists())

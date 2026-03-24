@@ -84,6 +84,12 @@ class Syllabus(models.Model):
         blank=True,
         help_text="Замечания от автоматической проверки",
     )
+    ai_claimed_at = models.DateTimeField(
+        "Забрано в AI-обработку",
+        null=True,
+        blank=True,
+    )
+    ai_claimed_by = models.CharField("AI-воркер", max_length=128, blank=True)
 
     credits_ects = models.CharField("Кредиты (ECTS)", max_length=20, blank=True)
     total_hours = models.PositiveIntegerField("Всего часов", blank=True, null=True)

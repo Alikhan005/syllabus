@@ -1,4 +1,7 @@
-import re
+﻿import re
+
+import mimetypes
+from pathlib import Path
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
@@ -6,6 +9,7 @@ from django.contrib import messages
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
 from django.db.models import Q
+from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
@@ -16,7 +20,7 @@ from ai_checker.services import _missing_extractor_feedback
 from catalog.models import Topic
 from catalog.services import ensure_default_courses
 from workflow.models import SyllabusAuditLog, SyllabusStatusLog
-from workflow.services import change_status
+from workflow.services import change_status, queue_for_ai_check
 from .forms import SyllabusDetailsForm, SyllabusForm, is_allowed_syllabus_file_name
 from .models import Syllabus, SyllabusRevision, SyllabusTopic
 from .permissions import can_view_syllabus, shared_syllabi_queryset
@@ -331,7 +335,7 @@ def shared_syllabi_list(request):
     if not request.user.can_view_shared_courses:
         raise PermissionDenied("Нет доступа к общим силлабусам.")
     """Общие силлабусы (только утвержденные)."""
-    base_qs = shared_syllabi_queryset(request.user).filter(status=Syllabus.Status.APPROVED).order_by("-updated_at")
+    base_qs = shared_syllabi_queryset(request.user).order_by("-updated_at")
 
     q = (request.GET.get("q") or "").strip()
     year = (request.GET.get("year") or "").strip()
@@ -397,14 +401,20 @@ def syllabus_create(request):
             syllabus = form.save(commit=False)
             syllabus.creator = request.user
 
-            if syllabus.pdf_file:
-                syllabus.status = Syllabus.Status.AI_CHECK
+            should_queue_for_ai = bool(syllabus.pdf_file)
+            syllabus.status = Syllabus.Status.DRAFT
+            syllabus.save()
+
+            if should_queue_for_ai:
+                queue_for_ai_check(
+                    request.user,
+                    syllabus,
+                    comment="Силлабус отправлен на AI-проверку при создании.",
+                )
                 success_message = "Файл загружен. Документ поставлен в очередь на AI-проверку."
             else:
-                syllabus.status = Syllabus.Status.DRAFT
                 success_message = "Силлабус создан как черновик."
 
-            syllabus.save()
             messages.success(request, success_message)
             return redirect("syllabus_detail", pk=syllabus.pk)
     else:
@@ -435,8 +445,13 @@ def upload_pdf_view(request):
             if not syllabus.pdf_file:
                 messages.error(request, "Для проверки ИИ необходимо загрузить файл!")
             else:
-                syllabus.status = Syllabus.Status.AI_CHECK # На проверку ИИ
+                syllabus.status = Syllabus.Status.DRAFT
                 syllabus.save()
+                queue_for_ai_check(
+                    request.user,
+                    syllabus,
+                    comment="Файл загружен и отправлен на AI-проверку.",
+                )
                 messages.success(request, "Файл загружен. Документ поставлен в очередь на AI-проверку.")
                 return redirect("syllabus_detail", pk=syllabus.pk)
     else:
@@ -489,7 +504,7 @@ def syllabus_detail(request, pk):
         and not is_creator
     )
     can_upload = (is_creator and not is_frozen and is_teacher_like) or (is_umu and is_frozen)
-    can_share = is_creator and is_teacher_like
+    can_share = is_creator and is_teacher_like and syllabus.status == Syllabus.Status.APPROVED
     can_edit_constructor = (
         is_creator
         and is_teacher_like
@@ -688,7 +703,17 @@ def syllabus_pdf(request, pk):
     if not _can_view_syllabus(request.user, syllabus):
         raise PermissionDenied("Нет доступа к этому силлабусу.")
     if syllabus.pdf_file:
-        return redirect(syllabus.pdf_file.url)
+        file_path = Path(syllabus.pdf_file.path)
+        if not file_path.exists():
+            raise Http404("Файл силлабуса не найден.")
+
+        # Stream uploaded files through Django so permissions stay enforced in production.
+        return FileResponse(
+            file_path.open("rb"),
+            as_attachment=request.GET.get("download") in {"1", "true", "yes"},
+            filename=Path(syllabus.pdf_file.name).name,
+            content_type=mimetypes.guess_type(file_path.name)[0] or "application/octet-stream",
+        )
     return generate_syllabus_pdf(syllabus)
 
 
@@ -704,19 +729,25 @@ def send_to_ai_check(request, pk):
         messages.warning(request, "Силлабус уже на проверке или утвержден.")
         return redirect('syllabus_detail', pk=pk)
 
-    validation_errors = validate_syllabus_structure(syllabus)
-    if validation_errors:
-        for error in validation_errors:
-            messages.error(request, error)
-        return redirect("syllabus_detail", pk=pk)
+    if syllabus.status != Syllabus.Status.AI_CHECK:
+        validation_errors = validate_syllabus_structure(syllabus)
+        if validation_errors:
+            for error in validation_errors:
+                messages.error(request, error)
+            return redirect("syllabus_detail", pk=pk)
 
-    syllabus.status = Syllabus.Status.AI_CHECK
-    syllabus.ai_feedback = ""
-    syllabus.save(update_fields=['status', 'ai_feedback'])
+    syllabus, queued_now = queue_for_ai_check(
+        request.user,
+        syllabus,
+        comment="Силлабус отправлен на AI-проверку из конструктора.",
+    )
     SyllabusRevision.objects.create(
         syllabus=syllabus, changed_by=request.user, version_number=syllabus.version_number, note="Отправлено на проверку ИИ"
     )
-    messages.success(request, "Силлабус поставлен в очередь на AI-проверку.")
+    if queued_now:
+        messages.success(request, "Силлабус поставлен в очередь на AI-проверку.")
+    else:
+        messages.info(request, "Силлабус уже находится в очереди AI-проверки.")
     return redirect('syllabus_detail', pk=pk)
 
 
@@ -730,20 +761,22 @@ def syllabus_change_status(request, pk, new_status):
             messages.success(request, "Статус силлабуса обновлен.")
         except (PermissionDenied, ValueError) as exc:
             messages.error(request, str(exc) or "Недостаточно прав.")
-    redirect_candidates = [
+
+    next_urls = (
         request.POST.get("next", "").strip(),
         request.GET.get("next", "").strip(),
         (request.META.get("HTTP_REFERER") or "").strip(),
-    ]
-    for candidate in redirect_candidates:
-        if candidate and url_has_allowed_host_and_scheme(
-            candidate,
+    )
+
+    for next_url in next_urls:
+        if next_url and url_has_allowed_host_and_scheme(
+            next_url,
             allowed_hosts={request.get_host()},
             require_https=request.is_secure(),
         ):
-            return redirect(candidate)
+            return redirect(next_url)
 
-    return redirect(reverse("syllabus_detail", args=[syllabus.pk]))
+    return redirect("syllabus_detail", pk=syllabus.pk)
 
 
 @login_required
@@ -769,24 +802,29 @@ def syllabus_upload_file(request, pk):
 
         syllabus.pdf_file.save(uploaded.name, uploaded, save=False)
         syllabus.version_number += 1
-        
-        # Если загрузил автор и статус позволяет - отправляем на ИИ
-        if is_creator and syllabus.status in [Syllabus.Status.CORRECTION, Syllabus.Status.DRAFT]:
-            syllabus.status = Syllabus.Status.AI_CHECK
-            syllabus.ai_feedback = ""
-            messages.success(request, "Файл обновлён. Документ поставлен в очередь на повторную AI-проверку.")
-            queue_has_file = True
-        else:
-             messages.success(request, "Файл обновлён.")
-             queue_has_file = False
-        
+
+        should_queue_for_ai = is_creator and syllabus.status in [Syllabus.Status.CORRECTION, Syllabus.Status.DRAFT]
         syllabus.save()
-        
+
+        if should_queue_for_ai:
+            queue_for_ai_check(
+                request.user,
+                syllabus,
+                comment="Файл обновлён и отправлен на повторную AI-проверку.",
+            )
+            messages.success(request, "Файл обновлён. Документ поставлен в очередь на повторную AI-проверку.")
+        else:
+            messages.success(request, "Файл обновлён.")
+
         SyllabusRevision.objects.create(
             syllabus=syllabus,
             changed_by=request.user,
             version_number=syllabus.version_number,
-            note="Загружен новый файл (авто-проверка)",
+            note=(
+                "Загружен новый файл (авто-проверка)"
+                if should_queue_for_ai
+                else "Загружен новый файл"
+            ),
         )
         SyllabusAuditLog.objects.create(
             syllabus=syllabus,
@@ -801,11 +839,14 @@ def syllabus_upload_file(request, pk):
 
 @login_required
 @teacher_like_required
+@require_POST
 def syllabus_toggle_share(request, pk):
     syllabus = get_object_or_404(Syllabus, pk=pk)
     if request.user != syllabus.creator:
         raise PermissionDenied("Недостаточно прав.")
-    if request.method == "POST":
-        syllabus.is_shared = not syllabus.is_shared
-        syllabus.save(update_fields=["is_shared"])
+    if syllabus.status != Syllabus.Status.APPROVED:
+        messages.warning(request, "Публикация доступна только для утверждённых силлабусов.")
+        return redirect("syllabus_detail", pk=pk)
+    syllabus.is_shared = not syllabus.is_shared
+    syllabus.save(update_fields=["is_shared"])
     return redirect("syllabus_detail", pk=pk)

@@ -1,6 +1,5 @@
 from django import forms
-from django.contrib.auth import authenticate
-from django.contrib.auth import get_user_model
+from django.contrib.auth import authenticate, get_user_model
 from django.contrib.auth.forms import AuthenticationForm, PasswordResetForm, UserCreationForm
 from django.core.exceptions import ValidationError
 
@@ -19,6 +18,10 @@ class SignupForm(UserCreationForm):
         }
         allowed_roles = [choice for choice in User.Role.choices if choice[0] in allowed_role_values]
         self.fields["role"].choices = allowed_roles
+        self.fields["role"].help_text = (
+            "Выберите роль для демонстрации сценария системы. "
+            "При необходимости администратор сможет изменить ее позже."
+        )
         self.fields["email"].required = True
 
     class Meta:
@@ -42,16 +45,8 @@ class SignupForm(UserCreationForm):
             "department": "Кафедра",
         }
         help_texts = {
-            "role": "Выберите свою роль. При необходимости администратор сможет изменить её позже.",
+            "role": "Выберите свою роль. При необходимости администратор сможет изменить ее позже.",
         }
-
-    def _set_existing_user(self, user):
-        if self.existing_user and self.existing_user.pk != user.pk:
-            raise ValidationError(
-                "Имя пользователя и email уже заняты разными аккаунтами. Проверьте данные."
-            )
-        self.existing_user = user
-        self.instance = user
 
     def clean_username(self):
         username = (self.cleaned_data.get("username") or "").strip()
@@ -62,7 +57,12 @@ class SignupForm(UserCreationForm):
         if existing:
             if existing.is_active:
                 raise ValidationError("Пользователь с таким именем уже существует.")
-            self._set_existing_user(existing)
+            if self.existing_user and self.existing_user.pk != existing.pk:
+                raise ValidationError(
+                    "Имя пользователя и email уже заняты разными аккаунтами. Проверьте данные."
+                )
+            self.existing_user = existing
+            self.instance = existing
         return username
 
     def clean_email(self):
@@ -74,7 +74,12 @@ class SignupForm(UserCreationForm):
         if existing:
             if existing.is_active:
                 raise ValidationError("Пользователь с таким email уже существует.")
-            self._set_existing_user(existing)
+            if self.existing_user and self.existing_user.pk != existing.pk:
+                raise ValidationError(
+                    "Имя пользователя и email уже заняты разными аккаунтами. Проверьте данные."
+                )
+            self.existing_user = existing
+            self.instance = existing
         return email
 
 
@@ -105,7 +110,6 @@ class LoginForm(AuthenticationForm):
             )
 
         self.confirm_login_allowed(user)
-        # AuthenticationForm expects user_cache for LoginView to log in.
         self.user_cache = user
         return self.cleaned_data
 

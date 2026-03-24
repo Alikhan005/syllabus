@@ -1,10 +1,13 @@
 from django.contrib.auth import get_user_model
 from django.test import SimpleTestCase, TestCase
+from django.urls import reverse
 
 from catalog.models import Course
 from syllabi.models import Syllabus
+from workflow.models import SyllabusStatusLog
 
 from ai_checker.services import _apply_lenient_guardrail, _build_representative_excerpt
+from ai_checker.services import _build_formal_markdown_result
 from ai_checker.services import _detect_non_syllabus_document
 from ai_checker.services import _quick_structure_decision
 from ai_checker.services import run_ai_check
@@ -118,6 +121,50 @@ class AiCheckFastRulesTests(SimpleTestCase):
         self.assertEqual(result["raw_response"], "fast-rules:missing-core-sections")
 
 
+class AiCheckFormalRulesTests(SimpleTestCase):
+    def test_formal_rules_ignore_table_literature_header_and_parse_plain_week_ranges(self):
+        source_text = (
+            "1. Краткое описание курса\n"
+            "Практический курс по запуску цифрового продукта.\n"
+            "Цель курса\n"
+            "Сформировать навыки разработки и проверки MVP.\n"
+            "Ожидаемые результаты:\n"
+            "РО1 - Формулировать JTBD.\n"
+            "Методы обучения:\n"
+            "Лекции и практика.\n"
+            "2. Тематический план по неделям\n"
+            "Неделя Тема / модуль Задания Результат обучения Литература Структура оценок\n"
+            "1-2 Старт, проблема, JTBD, Value Proposition\n"
+            "3-4\n"
+            "Применение Lean-методологии в бизнес-моделях\n"
+            "5-7 CustDev: потребности клиентов и рынка\n"
+            "8 Рубежный контроль 1\n"
+            "9\n"
+            "Создание клиентоориентированного продукта\n"
+            "10-12 Итеративные методы разработки и процессов\n"
+            "4. Список литературы\n"
+            "Обязательная литература\n"
+            "1. Эрик Рис. Бизнес с нуля. 2022.\n"
+            "2. Стив Бланк. Стартап. Настольная книга основателя. 2020.\n"
+            "Дополнительная литература\n"
+            "1. Y Combinator Startup School - How to Plan an MVP - YouTube\n"
+            "5. Политика академической честности и использование ИИ\n"
+            "Соблюдать требования академической честности.\n"
+            "Политика курса\n"
+            "Посещаемость и дедлайны обязательны.\n"
+            "Философия преподавания и обучения\n"
+            "Обучение через практику.\n"
+            "Инклюзивное академическое сообщество\n"
+            "Курс открыт для всех студентов.\n"
+        )
+
+        result = _build_formal_markdown_result(source_text, expected_weeks=12)
+
+        self.assertTrue(result["approved"])
+        self.assertNotIn("Структура оценок", result["feedback"])
+        self.assertNotIn("недели не распознаны", result["feedback"])
+
+
 class AiCheckPersistenceTests(TestCase):
     def test_run_ai_check_persists_feedback_on_syllabus(self):
         user_model = get_user_model()
@@ -139,4 +186,41 @@ class AiCheckPersistenceTests(TestCase):
         run_ai_check(syllabus)
         syllabus.refresh_from_db()
 
-        self.assertIn("Ошибка", syllabus.ai_feedback)
+        self.assertIn("Summary", syllabus.ai_feedback)
+
+
+class AiCheckViewTests(TestCase):
+    def test_run_check_requires_post_and_logs_queue_transition(self):
+        user_model = get_user_model()
+        teacher = user_model.objects.create_user(
+            username="ai_queue_teacher",
+            password="pass1234",
+            role="teacher",
+        )
+        course = Course.objects.create(owner=teacher, code="AI-102", available_languages="ru")
+        syllabus = Syllabus.objects.create(
+            course=course,
+            creator=teacher,
+            semester="Fall 2025",
+            academic_year="2025-2026",
+            status=Syllabus.Status.DRAFT,
+        )
+
+        self.client.force_login(teacher)
+
+        get_response = self.client.get(reverse("ai_check_run", args=[syllabus.pk]))
+        self.assertEqual(get_response.status_code, 405)
+
+        post_response = self.client.post(reverse("ai_check_run", args=[syllabus.pk]))
+        self.assertEqual(post_response.status_code, 302)
+
+        syllabus.refresh_from_db()
+        self.assertEqual(syllabus.status, Syllabus.Status.AI_CHECK)
+        self.assertTrue(
+            SyllabusStatusLog.objects.filter(
+                syllabus=syllabus,
+                from_status=Syllabus.Status.DRAFT,
+                to_status=Syllabus.Status.AI_CHECK,
+                changed_by=teacher,
+            ).exists()
+        )
