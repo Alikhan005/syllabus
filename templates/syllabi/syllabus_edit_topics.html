@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% block title %}Темы и недели{% endblock %}
+{% block content %}
+<div class="editor-shell editor-shell--wide">
+  <div class="editor-hero">
+    <div class="editor-hero__kicker">Шаг 2 из 3</div>
+    <h1 class="editor-hero__title">Структура тем по неделям</h1>
+    <p class="editor-hero__text">
+      Отметьте темы, которые войдут в силлабус, и при необходимости измените недели, часы,
+      названия и дополнительные пояснения.
+    </p>
+  </div>
+
+  <form method="post" class="editor-main">
+    {% csrf_token %}
+
+    <div class="editor-toolbar">
+      <div class="editor-note editor-note--soft">
+        <h2 class="editor-note__title">Как заполнять</h2>
+        <p class="editor-help">
+          Если номер недели не указан, система сможет расставить темы автоматически.
+          Период можно указать в формате `1-2` или `5-6`.
+          {% if syllabus.pdf_file %}Если вы работаете только с PDF, этот шаг можно заполнить частично.{% endif %}
+        </p>
+      </div>
+      <div class="editor-actions">
+        <a href="{% url 'syllabus_edit_details' syllabus.pk %}" class="btn-secondary">К деталям</a>
+        <button class="btn-primary" type="submit">Сохранить структуру</button>
+      </div>
+    </div>
+
+    <div class="editor-table-wrap">
+      <table class="editor-table editor-table--topics">
+        <thead>
+          <tr>
+            <th>Включить</th>
+            <th>Неделя</th>
+            <th>Период</th>
+            <th>Тема из каталога</th>
+            <th>Часы</th>
+            <th>Название в силлабусе</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in topics %}
+            <tr>
+              <td>
+                <label class="editor-toggle editor-toggle--compact">
+                  <input type="checkbox" name="include_{{ row.topic.id }}" {% if row.included %}checked{% endif %}>
+                  <span>Включить</span>
+                </label>
+              </td>
+              <td>
+                <input type="number" min="1" name="week_{{ row.topic.id }}" value="{{ row.week_number|default_if_none:'' }}" placeholder="1">
+              </td>
+              <td>
+                <input type="text" name="week_label_{{ row.topic.id }}" value="{{ row.week_label }}" placeholder="1-2">
+              </td>
+              <td>
+                <div class="editor-inline-stack">
+                  <strong>{{ row.display_title }}</strong>
+                  <span class="editor-mini">Тип занятия: {{ row.topic.get_week_type_display }}</span>
+                </div>
+              </td>
+              <td>
+                <div class="editor-inline-stack">
+                  <input type="number" min="1" name="hours_{{ row.topic.id }}" value="{{ row.custom_hours|default_if_none:'' }}" placeholder="{{ row.topic.default_hours }}">
+                  <span class="editor-mini">По умолчанию: {{ row.topic.default_hours }} ч.</span>
+                </div>
+              </td>
+              <td>
+                <input type="text" name="title_{{ row.topic.id }}" value="{{ row.custom_title }}" placeholder="Оставьте пустым, чтобы использовать название темы">
+              </td>
+            </tr>
+            <tr class="editor-table__details">
+              <td colspan="6">
+                <div class="editor-grid editor-grid--2">
+                  <div class="editor-field">
+                    <label for="tasks_{{ row.topic.id }}">Задания</label>
+                    <textarea id="tasks_{{ row.topic.id }}" name="tasks_{{ row.topic.id }}" rows="3">{{ row.tasks }}</textarea>
+                  </div>
+                  <div class="editor-field">
+                    <label for="outcomes_{{ row.topic.id }}">Результаты обучения</label>
+                    <textarea id="outcomes_{{ row.topic.id }}" name="outcomes_{{ row.topic.id }}" rows="3">{{ row.learning_outcomes }}</textarea>
+                  </div>
+                  <div class="editor-field">
+                    <label for="literature_{{ row.topic.id }}">Литература</label>
+                    <textarea id="literature_{{ row.topic.id }}" name="literature_{{ row.topic.id }}" rows="3">{{ row.literature_notes }}</textarea>
+                    <p class="editor-help">Если поле пустое, будет использована литература из карточки темы.</p>
+                  </div>
+                  <div class="editor-field">
+                    <label for="assessment_{{ row.topic.id }}">Оценивание</label>
+                    <textarea id="assessment_{{ row.topic.id }}" name="assessment_{{ row.topic.id }}" rows="3">{{ row.assessment }}</textarea>
+                  </div>
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="editor-actions">
+      <a href="{% url 'syllabus_edit_details' syllabus.pk %}" class="btn-secondary">К деталям</a>
+      <button class="btn-primary" type="submit">Сохранить структуру</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

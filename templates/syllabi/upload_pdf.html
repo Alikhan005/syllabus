@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}Загрузка силлабуса{% endblock %}
+{% block content %}
+<div class="editor-shell">
+  <div class="editor-hero">
+    <div class="editor-hero__kicker">Шаг 1 из 3</div>
+    <h1 class="editor-hero__title">Загрузите файл силлабуса</h1>
+    <p class="editor-hero__text">
+      Выберите дисциплину, укажите семестр и загрузите файл в формате PDF или Word.
+      После этого система запустит автоматическую проверку структуры.
+    </p>
+  </div>
+
+  {% if form.non_field_errors %}
+    <div class="editor-errors editor-errors--block">{{ form.non_field_errors }}</div>
+  {% endif %}
+
+  <form method="post" enctype="multipart/form-data" class="editor-layout">
+    {% csrf_token %}
+
+    <div class="editor-main">
+      <section class="editor-card">
+        <div class="editor-card__header">
+          <div>
+            <div class="editor-card__eyebrow">Данные</div>
+            <h2 class="editor-card__title">Параметры силлабуса</h2>
+          </div>
+        </div>
+        <div class="editor-grid editor-grid--2">
+          <div class="editor-field editor-field--wide">
+            <label for="{{ form.course.id_for_label }}">{{ form.course.label }}</label>
+            {{ form.course }}
+            {% if form.course.errors %}<div class="editor-errors">{{ form.course.errors }}</div>{% endif %}
+          </div>
+          <div class="editor-field">
+            <label for="{{ form.semester.id_for_label }}">{{ form.semester.label }}</label>
+            {{ form.semester }}
+            {% if form.semester.errors %}<div class="editor-errors">{{ form.semester.errors }}</div>{% endif %}
+          </div>
+          <div class="editor-field">
+            <label for="{{ form.academic_year.id_for_label }}">{{ form.academic_year.label }}</label>
+            {{ form.academic_year }}
+            {% if form.academic_year.errors %}<div class="editor-errors">{{ form.academic_year.errors }}</div>{% endif %}
+          </div>
+          <div class="editor-field">
+            <label for="{{ form.main_language.id_for_label }}">{{ form.main_language.label }}</label>
+            {{ form.main_language }}
+            {% if form.main_language.errors %}<div class="editor-errors">{{ form.main_language.errors }}</div>{% endif %}
+          </div>
+        </div>
+      </section>
+
+      <section class="editor-card">
+        <div class="editor-card__header">
+          <div>
+            <div class="editor-card__eyebrow">Файл</div>
+            <h2 class="editor-card__title">Исходный документ</h2>
+          </div>
+          <div class="editor-chip">PDF / DOC / DOCX</div>
+        </div>
+        <div class="editor-field">
+          <label for="{{ form.pdf_file.id_for_label }}">Файл силлабуса</label>
+          {{ form.pdf_file }}
+          <p class="editor-help">Поддерживаются форматы: `.pdf`, `.doc`, `.docx`.</p>
+          {% if form.pdf_file.errors %}<div class="editor-errors">{{ form.pdf_file.errors }}</div>{% endif %}
+        </div>
+      </section>
+
+      <div class="editor-actions">
+        <button type="submit" class="btn-primary">Загрузить и проверить</button>
+        <a href="{% url 'syllabi_list' %}" class="btn-secondary">К списку силлабусов</a>
+      </div>
+    </div>
+
+    <aside class="editor-sidebar">
+      <div class="editor-note">
+        <h2 class="editor-note__title">Что произойдёт дальше</h2>
+        <ul class="editor-note__list">
+          <li>Файл привяжется к выбранной дисциплине и сохранится в системе.</li>
+          <li>ИИ проверит структуру и покажет замечания, если найдёт проблемы.</li>
+          <li>Если ИИ найдёт замечания, можно загрузить исправленный файл и отправить его на повторную проверку.</li>
+        </ul>
+      </div>
+    </aside>
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,23 @@
+<div class="syllabus-constructor mb-8 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+    <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+            <h3 class="text-lg font-bold text-slate-800">{{ edit_panel_title }}</h3>
+            <p class="mt-1 text-sm text-slate-600">{{ edit_panel_description }}</p>
+        </div>
+        <p class="mt-1 text-xs text-slate-500">{{ edit_panel_hint }}</p>
+        <div class="syllabus-constructor__actions flex flex-wrap gap-2">
+            <a href="{% url 'syllabus_edit_topics' syllabus.pk %}" class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 transition">
+                Редактировать темы
+            </a>
+            <a href="{% url 'syllabus_edit_details' syllabus.pk %}" class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 transition">
+                Редактировать детали
+            </a>
+            <form method="post" action="{% url 'send_to_ai_check' syllabus.pk %}">
+                {% csrf_token %}
+                <button class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition">
+                    {{ edit_panel_submit_label }}
+                </button>
+            </form>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Новое объявление</title>
+  </head>
+  <body style="margin:0; padding:0; background:#eef2f7; font-family:'Segoe UI', Arial, sans-serif; color:#10233b;">
+    <div style="display:none; max-height:0; overflow:hidden; opacity:0;">
+      Новое объявление в AlmaU Syllabus: {{ announcement.title }}
+    </div>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#eef2f7; padding:24px 12px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:620px;">
+            <tr>
+              <td style="padding-bottom:14px; text-align:left;">
+                <div style="display:inline-block; padding:8px 14px; border-radius:999px; background:#dbeafe; color:#1d4ed8; font-size:12px; font-weight:700; letter-spacing:0.04em; text-transform:uppercase;">
+                  AlmaU Syllabus
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td style="background:#ffffff; border-radius:20px; box-shadow:0 18px 40px rgba(15, 23, 42, 0.12); overflow:hidden;">
+                <div style="background:linear-gradient(135deg, #0f766e, #155eef); padding:28px 28px 22px; color:#ffffff;">
+                  <div style="font-size:13px; font-weight:600; opacity:0.9;">Новое объявление</div>
+                  <div style="font-size:28px; line-height:1.2; font-weight:800; margin-top:10px;">
+                    {{ announcement.title }}
+                  </div>
+                  <div style="font-size:14px; opacity:0.92; margin-top:14px;">
+                    Опубликовал: {{ author_name }}
+                  </div>
+                  <div style="display:inline-block; margin-top:10px; padding:6px 12px; border-radius:999px; background:rgba(255, 255, 255, 0.16); color:#ffffff; font-size:12px; font-weight:700;">
+                    Роль: {{ author_role }}
+                  </div>
+                </div>
+                <div style="padding:28px;">
+                  <div style="font-size:15px; line-height:1.7; color:#334155;">
+                    {{ announcement.body|linebreaksbr }}
+                  </div>
+
+                  {% if dashboard_url %}
+                  <div style="margin-top:28px;">
+                    <a href="{{ dashboard_url }}"
+                       style="display:inline-block; background:#0f172a; color:#ffffff; text-decoration:none; font-size:14px; font-weight:700; padding:13px 18px; border-radius:12px;">
+                      Открыть в системе
+                    </a>
+                  </div>
+                  {% endif %}
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:16px 8px 0; text-align:center; font-size:12px; color:#94a3b8;">
+                С уважением, AlmaU Syllabus
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

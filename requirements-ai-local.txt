@@ -1,0 +1,5 @@
+-r requirements-ai.txt
+
+# Optional local LLM runtime.
+# This package may require Visual C++ Build Tools / CMake on Windows.
+llama-cpp-python

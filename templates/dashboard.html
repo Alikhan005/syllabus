@@ -1,0 +1,323 @@
+{% extends "base.html" %}
+{% block title %}Панель управления{% endblock %}
+{% block body_class %}dashboard-page{% endblock %}
+{% block content %}
+<div class="dashboard">
+  <div class="dashboard__main">
+<div class="dashboard-hero mb-6">
+  <h1 class="text-3xl font-bold dashboard-hero__title">Панель управления — {{ user.get_role_display }}</h1>
+  <p class="text-gray-600 mt-2 dashboard-hero__subtitle">
+    {% if user.role == "teacher" or user.role == "program_leader" %}
+      Управляйте курсами, темами и силлабусами в едином пространстве AlmaU.
+    {% elif user.role == "dean" %}
+      Просматривайте силлабусы на согласовании и принимайте решения как декан.
+    {% elif user.role == "umu" %}
+      Финальное согласование силлабусов и контроль качества в УМУ.
+    {% else %}
+      Административная панель управления системой и процессом согласования.
+    {% endif %}
+  </p>
+  <div class="dashboard-hero__chips">
+    {% if user.can_view_courses %}
+      <span class="dashboard-chip">Курсы: {{ my_courses_count|default:"0" }}</span>
+    {% endif %}
+    {% if user.can_view_shared_courses %}
+      <span class="dashboard-chip">Общие курсы: {{ shared_courses_count|default:"0" }}</span>
+    {% endif %}
+    <span class="dashboard-chip">Силлабусы: {{ syllabi_count|default:"0" }}</span>
+    {% if user.can_view_shared_courses %}
+      <span class="dashboard-chip">Общие силлабусы: {{ shared_syllabi_count|default:"0" }}</span>
+    {% endif %}
+  </div>
+</div>
+
+{% if user.can_view_courses or user.can_view_shared_courses %}
+  <div class="dashboard-grid">
+    {% if user.can_view_courses %}
+    <div class="card p-5 flex flex-col justify-between">
+      <div>
+        <h2 class="text-xl font-semibold mb-2">Мои курсы</h2>
+        <p class="text-gray-600 text-sm mb-3">
+          Создавайте и редактируйте курсы, ведите банк тем и материалов.
+        </p>
+        <span class="text-sm text-gray-500">{{ my_courses_count }} курс(ов)</span>
+      </div>
+      <div class="mt-4 dashboard-card__action">
+        <a href="{% url 'courses_list' %}" class="btn-primary inline-block dashboard-card__button">Открыть</a>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if user.can_view_shared_courses %}
+    <div class="card p-5 flex flex-col justify-between">
+      <div>
+        <h2 class="text-xl font-semibold mb-2">Общие курсы</h2>
+        <p class="text-gray-600 text-sm mb-3">
+          Используйте общие курсы коллег как основу и адаптируйте под себя.
+        </p>
+        <span class="text-sm text-gray-500">{{ shared_courses_count }} курс(ов)</span>
+      </div>
+      <div class="mt-4 dashboard-card__action">
+        <a href="{% url 'shared_courses_list' %}" class="btn-primary inline-block dashboard-card__button">Открыть</a>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="card p-5 flex flex-col justify-between">
+      <div>
+        <h2 class="text-xl font-semibold mb-2">Мои силлабусы</h2>
+        <p class="text-gray-600 text-sm mb-3">
+          Собирайте силлабусы на семестр и отправляйте на согласование.
+        </p>
+        <span class="text-sm text-gray-500">{{ syllabi_count }} силлабус(ов)</span>
+      </div>
+      <div class="mt-4 dashboard-card__action">
+        <a href="{% url 'syllabi_list' %}" class="btn-primary inline-block dashboard-card__button">Открыть</a>
+      </div>
+    </div>
+
+    <div class="card p-5 flex flex-col justify-between">
+      <div>
+        <h2 class="text-xl font-semibold mb-2">Общие силлабусы</h2>
+        <p class="text-gray-600 text-sm mb-3">
+          Просматривайте силлабусы по похожим дисциплинам коллег.
+        </p>
+        <span class="text-sm text-gray-500">{{ shared_syllabi_count }} силлабус(ов)</span>
+      </div>
+      <div class="mt-4 dashboard-card__action">
+        <a href="{% url 'shared_syllabi_list' %}" class="btn-primary inline-block dashboard-card__button">Открыть</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="card p-5 dashboard-onboarding">
+    <h2 class="text-xl font-semibold mb-3">Первые шаги</h2>
+    <ol class="list-decimal ml-6 text-slate-600 space-y-2">
+      <li>Сначала создайте курс и заполните банк тем.</li>
+      <li>Потом выберите один путь для силлабуса: заполнить его вручную в системе или загрузить готовый PDF/Word.</li>
+      <li>После проверки ИИ исправьте замечания и отправьте документ на согласование.</li>
+    </ol>
+    <p class="text-sm text-slate-500 mt-2">
+      Важно: кнопка «Создать курс» создает дисциплину, а не сам силлабус. Для быстрого старта используйте загрузку готового файла.
+    </p>
+    {% if user.can_view_courses %}
+      <div class="flex flex-wrap gap-2 mt-4 dashboard-onboarding__actions">
+        <a href="{% url 'upload_pdf' %}" class="btn-secondary dashboard-onboarding__button">Загрузить готовый файл</a>
+        <a href="{% url 'course_create' %}" class="btn-primary dashboard-onboarding__button">Создать курс</a>
+      </div>
+    {% endif %}
+  </div>
+{% else %}
+  <div class="dashboard-grid">
+    <div class="card p-5 flex flex-col justify-between">
+      <div>
+        <h2 class="text-xl font-semibold mb-2">Все силлабусы</h2>
+        <p class="text-gray-600 text-sm mb-3">
+          Просматривайте силлабусы по всем курсам и управляйте статусами.
+        </p>
+      </div>
+      <div class="mt-4 dashboard-card__action">
+        <a href="{% url 'syllabi_list' %}" class="btn-primary inline-block dashboard-card__button">Открыть список</a>
+      </div>
+    </div>
+
+    {% if user.can_view_shared_courses %}
+      <div class="card p-5 flex flex-col justify-between">
+        <div>
+          <h2 class="text-xl font-semibold mb-2">Общие курсы</h2>
+          <p class="text-gray-600 text-sm mb-3">
+            Смотрите базы тем и материалов для согласования.
+          </p>
+        </div>
+        <div class="mt-4 dashboard-card__action">
+          <a href="{% url 'shared_courses_list' %}" class="btn-secondary inline-block dashboard-card__button">Открыть</a>
+        </div>
+      </div>
+    {% endif %}
+  </div>
+{% endif %}
+
+  <div class="card p-5 approval-board dashboard-approval">
+    <div class="approval-board__header">
+      <div>
+        <h2 class="text-xl font-semibold">Согласование</h2>
+        <p class="text-sm text-slate-600">Все статусы и решения по силлабусам собраны в одном месте.</p>
+      </div>
+      <div class="status-legend approval-board__legend">
+        <span class="status-pill status-pill--approved">Утверждено</span>
+        <span class="status-pill status-pill--rejected">Отклонено</span>
+      </div>
+    </div>
+
+    {% if my_reviews or pending_dean or pending_umu %}
+      <div class="approval-grid">
+        {% if my_reviews %}
+          <div class="approval-section">
+            <div class="approval-section__title">Мои заявки</div>
+            <div class="approval-list">
+              {% for syllabus in my_reviews %}
+                <div class="approval-item">
+                  <div class="approval-item__content">
+                    <div class="approval-item__title">{{ syllabus.course.code }} {{ syllabus.semester }}</div>
+                    <div class="approval-item__meta">{{ syllabus.course.display_title }}</div>
+                    {% if syllabus.status == 'correction' and syllabus.correction_source_label %}
+                      <div class="approval-item__meta text-red-700">
+                        Возврат от {{ syllabus.correction_source_label }}
+                        {% if syllabus.correction_comment_preview %}
+                          : {{ syllabus.correction_comment_preview|truncatechars:100 }}
+                        {% endif %}
+                      </div>
+                    {% endif %}
+                  </div>
+                  <span class="status-pill status-pill--{{ syllabus.status }} approval-item__status">{{ syllabus.get_status_display }}</span>
+                  <div class="approval-actions">
+                    <a href="{% url 'syllabus_detail' syllabus.pk %}" class="link">Открыть</a>
+                  </div>
+                </div>
+              {% endfor %}
+            </div>
+          </div>
+        {% endif %}
+
+        {% if pending_dean %}
+          <div class="approval-section">
+            <div class="approval-section__title">На согласовании у декана</div>
+            <div class="approval-list">
+              {% for syllabus in pending_dean %}
+                <div class="approval-item">
+                  <div class="approval-item__content">
+                    <div class="approval-item__title">{{ syllabus.course.code }} {{ syllabus.semester }}</div>
+                    <div class="approval-item__meta">
+                      Автор: {{ syllabus.creator.get_full_name|default:syllabus.creator.username }}
+                    </div>
+                  </div>
+                  <span class="status-pill status-pill--{{ syllabus.status }} approval-item__status">{{ syllabus.get_status_display }}</span>
+                  <div class="approval-actions">
+                    <a href="{% url 'syllabus_detail' syllabus.pk %}" class="btn-secondary">Открыть</a>
+                    {% if syllabus.creator != user %}
+                      <form method="post" action="{% url 'syllabus_change_status' syllabus.pk 'review_umu' %}" class="approval-action-form">
+                        {% csrf_token %}
+                        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                        <input type="text" name="comment" placeholder="Комментарий" class="approval-input">
+                        <button class="btn-primary">Утвердить</button>
+                      </form>
+                      <form method="post" action="{% url 'syllabus_change_status' syllabus.pk 'correction' %}" class="approval-action-form">
+                        {% csrf_token %}
+                        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                        <input type="text" name="comment" placeholder="Причина отклонения" class="approval-input" required>
+                        <button class="btn-secondary">Отклонить</button>
+                      </form>
+                    {% endif %}
+                  </div>
+                </div>
+              {% endfor %}
+            </div>
+          </div>
+        {% endif %}
+
+        {% if pending_umu %}
+          <div class="approval-section">
+            <div class="approval-section__title">На согласовании в УМУ</div>
+            <div class="approval-list">
+              {% for syllabus in pending_umu %}
+                <div class="approval-item">
+                  <div class="approval-item__content">
+                    <div class="approval-item__title">{{ syllabus.course.code }} {{ syllabus.semester }}</div>
+                    <div class="approval-item__meta">
+                      Автор: {{ syllabus.creator.get_full_name|default:syllabus.creator.username }}
+                    </div>
+                  </div>
+                  <span class="status-pill status-pill--{{ syllabus.status }} approval-item__status">{{ syllabus.get_status_display }}</span>
+                  <div class="approval-actions">
+                    <a href="{% url 'syllabus_detail' syllabus.pk %}" class="btn-secondary">Открыть</a>
+                    {% if syllabus.creator != user %}
+                      <form method="post" action="{% url 'syllabus_change_status' syllabus.pk 'approved' %}" class="approval-action-form">
+                        {% csrf_token %}
+                        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                        <input type="text" name="comment" placeholder="Комментарий" class="approval-input">
+                        <button class="btn-primary">Финально утвердить</button>
+                      </form>
+                      <form method="post" action="{% url 'syllabus_change_status' syllabus.pk 'correction' %}" class="approval-action-form">
+                        {% csrf_token %}
+                        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                        <input type="text" name="comment" placeholder="Причина отклонения" class="approval-input" required>
+                        <button class="btn-secondary">Отклонить</button>
+                      </form>
+                    {% endif %}
+                  </div>
+                </div>
+              {% endfor %}
+            </div>
+          </div>
+        {% endif %}
+      </div>
+    {% else %}
+      <p class="text-sm text-slate-500">Нет документов на согласовании.</p>
+    {% endif %}
+  </div>
+  </div>
+  <aside class="dashboard__aside">
+    <div class="card p-5 dashboard-announcements">
+      <div class="flex items-center justify-between mb-3 dashboard-announcements__header">
+        <h2 class="text-lg font-semibold">Объявления</h2>
+        <span class="badge">Декан / УМУ</span>
+      </div>
+      {% if can_manage_announcements %}
+        <details class="announcement-compose">
+          <summary>Новая публикация</summary>
+          <form method="post" action="{% url 'announcement_create' %}" class="announcement-form">
+            {% csrf_token %}
+            {{ announcement_form.non_field_errors }}
+            <div class="announcement-field">
+              <label for="{{ announcement_form.title.id_for_label }}">Заголовок</label>
+              {{ announcement_form.title.errors }}
+              {{ announcement_form.title }}
+            </div>
+            <div class="announcement-field">
+              <label for="{{ announcement_form.body.id_for_label }}">Текст</label>
+              {{ announcement_form.body.errors }}
+              {{ announcement_form.body }}
+            </div>
+            <button class="btn-primary announcement-form__submit">Опубликовать</button>
+          </form>
+        </details>
+      {% endif %}
+
+      {% if announcements %}
+        <div class="announcement-list">
+          {% for item in announcements %}
+            <article class="announcement-item">
+              <div class="announcement-item__header" style="display:flex; align-items:flex-start; justify-content:space-between; gap:0.85rem;">
+                <div class="announcement-item__heading" style="flex:1; min-width:0; display:grid; gap:0.35rem;">
+                  <div class="announcement-title">{{ item.title }}</div>
+                  <div class="announcement-meta" style="display:flex; align-items:center; gap:0.45rem; flex-wrap:wrap; margin:0;">
+                    <span class="announcement-meta__date">{{ item.created_at|date:"d.m.Y H:i" }}</span>
+                    <span style="color:#94a3b8;">•</span>
+                    <span class="announcement-role-badge" style="display:inline-flex; align-items:center; padding:0.2rem 0.55rem; border-radius:999px; background:linear-gradient(135deg, rgba(15, 118, 110, 0.12), rgba(37, 99, 235, 0.08)); border:1px solid rgba(15, 118, 110, 0.16); color:#0b5853; font-size:0.69rem; font-weight:700; letter-spacing:0.04em; text-transform:uppercase;">{{ item.author_role_label }}</span>
+                    <span style="color:#94a3b8;">•</span>
+                    <span class="announcement-meta__author">{{ item.author_name }}</span>
+                  </div>
+                </div>
+                {% if item.can_delete %}
+                  <form method="post" action="{% url 'announcement_delete' item.pk %}" class="announcement-delete-form" style="margin:0; flex-shrink:0;">
+                    {% csrf_token %}
+                    <button type="submit" class="announcement-delete-button" title="Удалить объявление" aria-label="Удалить объявление" style="border:1px solid rgba(239, 68, 68, 0.18); border-radius:999px; background:rgba(239, 68, 68, 0.12); color:#b91c1c; display:inline-flex; align-items:center; justify-content:center; min-height:2rem; padding:0.38rem 0.72rem; font-size:0.76rem; font-weight:700; line-height:1; box-shadow:0 8px 18px rgba(127, 29, 29, 0.08); cursor:pointer;">
+                      Удалить
+                    </button>
+                  </form>
+                {% endif %}
+              </div>
+              <div class="announcement-body">{{ item.body|linebreaksbr }}</div>
+            </article>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="announcement-empty">
+          Публикаций пока нет. Новые объявления появятся здесь.
+        </div>
+      {% endif %}
+    </div>
+  </aside>
+</div>
+{% endblock %}
+

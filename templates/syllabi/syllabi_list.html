@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}Мои силлабусы{% endblock %}
+{% block body_class %}syllabi-list-page{% endblock %}
+
+{% block content %}
+<div class="syllabi-list-hero flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
+  <div>
+    <h1 class="text-2xl font-bold text-slate-800">Мои силлабусы</h1>
+    <p class="text-slate-500 text-sm mt-1">Здесь хранятся все ваши документы и их статусы.</p>
+  </div>
+  
+  {% if user.is_teacher_like %}
+    <div class="flex gap-2 syllabi-list-hero__actions">
+      <a href="{% url 'upload_pdf' %}" class="btn-primary flex items-center justify-center gap-2 w-full sm:w-auto">
+        <i class="fas fa-plus"></i> Загрузить новый силлабус
+      </a>
+    </div>
+  {% endif %}
+</div>
+
+<form method="get" class="syllabi-filter card p-4 mb-6 bg-white shadow-sm border border-slate-200">
+  <div class="grid gap-4 md:grid-cols-4 lg:grid-cols-5 syllabi-filter__grid">
+    <div class="md:col-span-2">
+      <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Поиск</label>
+      <input type="text" name="q" value="{{ filters.q }}" placeholder="Название курса, код..." class="form-control w-full border-slate-300 rounded-md text-sm">
+    </div>
+    <div>
+      <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Статус</label>
+      <select name="status" class="form-select w-full border-slate-300 rounded-md text-sm">
+        <option value="">Все</option>
+        {% for value, label in status_options %}
+          <option value="{{ value }}" {% if filters.status == value %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Год</label>
+      <select name="year" class="form-select w-full border-slate-300 rounded-md text-sm">
+        <option value="">Все</option>
+        {% for item in year_options %}
+          <option value="{{ item }}" {% if filters.year == item %}selected{% endif %}>{{ item }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="filter-actions flex items-end gap-2">
+      <button class="btn-secondary w-full text-sm" type="submit">Найти</button>
+      <a href="{% url 'syllabi_list' %}" class="btn-secondary text-sm">Сбросить</a>
+    </div>
+  </div>
+</form>
+
+<div class="syllabi-table card overflow-hidden bg-white shadow-sm border border-slate-200 rounded-lg">
+  <table class="w-full text-left text-sm responsive-table">
+    <thead class="bg-slate-50 text-slate-500 font-semibold border-b">
+      <tr>
+        <th class="p-4">Дисциплина</th>
+        <th class="p-4">Период</th>
+        <th class="p-4">Автор</th>
+        <th class="p-4">Статус</th>
+        <th class="p-4 text-right">Действия</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-slate-100">
+    {% for syllabus in syllabi %}
+      <tr class="hover:bg-slate-50 transition group">
+        <td class="p-4" data-label="Дисциплина">
+          <div class="font-bold text-slate-800">{{ syllabus.course.code }}</div>
+          <div class="text-xs text-slate-500">{{ syllabus.course.title_ru|truncatechars:40 }}</div>
+        </td>
+        <td class="p-4 text-slate-600" data-label="Период">
+          <div>{{ syllabus.semester }}</div>
+          <div class="text-xs text-slate-400">{{ syllabus.academic_year }}</div>
+        </td>
+        <td class="p-4 text-slate-600" data-label="Автор">
+            {{ syllabus.creator.get_full_name|default:syllabus.creator.username }}
+        </td>
+        <td class="p-4" data-label="Статус">
+          <span class="status-pill status-pill--{{ syllabus.status }}">{{ syllabus.get_status_display }}</span>
+        </td>
+        <td class="p-4 text-right flex justify-end gap-2 responsive-table__actions" data-label="Действия">
+          {% if syllabus.pdf_file %}
+            <a href="{% url 'syllabus_pdf' syllabus.pk %}" target="_blank" class="text-slate-400 hover:text-blue-600 p-1" title="Скачать PDF">
+                <i class="fa-regular fa-file-pdf"></i>
+            </a>
+          {% endif %}
+          <a href="{% url 'syllabus_detail' syllabus.pk %}" class="btn-secondary px-3 py-1 text-xs">
+            Открыть
+          </a>
+        </td>
+      </tr>
+    {% empty %}
+      <tr>
+        <td colspan="5" class="p-8 text-center text-slate-500 responsive-table__empty" data-label="">
+          <div class="text-4xl mb-2"><i class="fa-regular fa-folder-open"></i></div>
+          <p>Список пуст.</p>
+          {% if user.is_teacher_like %}
+            <a href="{% url 'upload_pdf' %}" class="text-blue-600 hover:underline mt-2 inline-block">Загрузить первый силлабус</a>
+          {% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

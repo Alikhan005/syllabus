@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body {
+      font-family: "DejaVu Sans", Arial, sans-serif;
+      font-size: 12px;
+      color: #0f172a;
+      line-height: 1.45;
+    }
+    .header {
+      padding-bottom: 12px;
+      border-bottom: 2px solid #0f172a;
+      margin-bottom: 16px;
+    }
+    .title {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+    .meta {
+      font-size: 11px;
+      color: #475569;
+    }
+    .section-title {
+      font-size: 14px;
+      font-weight: 700;
+      margin-top: 16px;
+      margin-bottom: 6px;
+      background-color: #f1f5f9;
+      padding: 5px;
+      border-left: 4px solid #0f172a;
+    }
+    .subsection-title {
+      font-size: 12px;
+      font-weight: 600;
+      margin-top: 8px;
+      margin-bottom: 4px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 6px;
+    }
+    th,
+    td {
+      border: 1px solid #cbd5e1;
+      padding: 6px;
+      text-align: left;
+      vertical-align: top;
+    }
+    th {
+      background: #f1f5f9;
+      font-weight: 600;
+    }
+    .meta-table th {
+      width: 30%;
+    }
+    .cell-pre {
+      white-space: pre-wrap;
+    }
+    ul {
+      margin: 4px 0 0 16px;
+      padding: 0;
+    }
+    .muted {
+      color: #64748b;
+    }
+    /* Стили специально для таблицы оценок */
+    .grading-table th, .grading-table td {
+        border: 1px solid black !important;
+        text-align: center;
+        padding: 4px;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="title">Силлабус по дисциплине {{ syllabus.course.display_title }}</div>
+    <div class="meta">
+      Код: {{ syllabus.course.code }} · Семестр: {{ syllabus.semester }} · Учебный год: {{ syllabus.academic_year }}
+    </div>
+    <div class="meta">
+      Статус: {{ syllabus.get_status_display }} · Язык: {{ syllabus.get_main_language_display }}
+    </div>
+  </div>
+
+  {% if syllabus.credits_ects or syllabus.total_hours or syllabus.contact_hours or syllabus.self_study_hours or syllabus.prerequisites or syllabus.delivery_format or syllabus.level or syllabus.program_name or syllabus.instructor_name or syllabus.instructor_contacts or syllabus.class_schedule %}
+    <div class="section-title">Паспорт дисциплины</div>
+    <table class="meta-table">
+      <tbody>
+        {% if syllabus.credits_ects %}<tr><th>Кредиты (ECTS)</th><td>{{ syllabus.credits_ects }}</td></tr>{% endif %}
+        {% if syllabus.total_hours %}<tr><th>Всего часов</th><td>{{ syllabus.total_hours }}</td></tr>{% endif %}
+        {% if syllabus.contact_hours %}<tr><th>Аудиторные часы</th><td>{{ syllabus.contact_hours }}</td></tr>{% endif %}
+        {% if syllabus.self_study_hours %}<tr><th>Самостоятельная работа</th><td>{{ syllabus.self_study_hours }}</td></tr>{% endif %}
+        {% if syllabus.prerequisites %}<tr><th>Пререквизиты</th><td class="cell-pre">{{ syllabus.prerequisites }}</td></tr>{% endif %}
+        {% if syllabus.delivery_format %}<tr><th>Формат обучения</th><td>{{ syllabus.delivery_format }}</td></tr>{% endif %}
+        {% if syllabus.level %}<tr><th>Уровень обучения</th><td>{{ syllabus.level }}</td></tr>{% endif %}
+        {% if syllabus.program_name %}<tr><th>Образовательная программа</th><td>{{ syllabus.program_name }}</td></tr>{% endif %}
+        {% if syllabus.instructor_name %}<tr><th>Преподаватель</th><td>{{ syllabus.instructor_name }}</td></tr>{% endif %}
+        {% if syllabus.instructor_contacts %}<tr><th>Контакты преподавателя</th><td class="cell-pre">{{ syllabus.instructor_contacts }}</td></tr>{% endif %}
+        {% if syllabus.class_schedule %}<tr><th>Время и место занятий</th><td class="cell-pre">{{ syllabus.class_schedule }}</td></tr>{% endif %}
+      </tbody>
+    </table>
+  {% endif %}
+
+  {% if syllabus.course_description %}
+    <div class="section-title">1. Краткое описание курса</div>
+    <div class="cell-pre">{{ syllabus.course_description }}</div>
+  {% endif %}
+
+  {% if syllabus.course_goal %}
+    <div class="subsection-title">Цель курса</div>
+    <div class="cell-pre">{{ syllabus.course_goal }}</div>
+  {% endif %}
+
+  {% if learning_outcomes_list %}
+    <div class="subsection-title">Ожидаемые результаты</div>
+    <ul>
+      {% for item in learning_outcomes_list %}
+        <li>{{ item }}</li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+
+  {% if teaching_methods_list %}
+    <div class="subsection-title">Методы обучения</div>
+    <ul>
+      {% for item in teaching_methods_list %}
+        <li>{{ item }}</li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+
+  <div class="section-title">2. Тематический план по неделям</div>
+  <table>
+    <thead>
+      <tr>
+        <th>Неделя</th>
+        <th>Тема / модуль</th>
+        <th>Задания</th>
+        <th>Результат обучения</th>
+        <th>Литература</th>
+        <th>Структура оценок</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for st in topics %}
+        <tr>
+          <td>{{ st.week_label|default:st.week_number }}</td>
+          <td>
+            <div>{{ st.get_title }}</div>
+            <div class="muted">{{ st.topic.get_week_type_display }}, {{ st.custom_hours|default:st.topic.default_hours }} ч.</div>
+          </td>
+          <td class="cell-pre">
+            {% if st.tasks %}
+              {{ st.tasks }}
+            {% elif st.topic.description_ru or st.topic.description_en or st.topic.description_kz %}
+              {{ st.topic.description_ru|default:st.topic.description_en|default:st.topic.description_kz }}
+            {% else %}
+              —
+            {% endif %}
+          </td>
+          <td class="cell-pre">
+            {% if st.learning_outcomes %}
+              {{ st.learning_outcomes }}
+            {% else %}
+              —
+            {% endif %}
+          </td>
+          <td>
+            {% if st.literature_notes %}
+              <div class="cell-pre">{{ st.literature_notes }}</div>
+            {% elif st.topic.literature.all %}
+              <ul>
+                {% for lit in st.topic.literature.all %}
+                  <li>
+                    {{ lit.title }}
+                    {% if lit.author %} - {{ lit.author }}{% endif %}
+                    {% if lit.year %} ({{ lit.year }}){% endif %}
+                  </li>
+                {% endfor %}
+              </ul>
+            {% else %}
+              —
+            {% endif %}
+          </td>
+          <td class="cell-pre">
+            {% if st.assessment %}
+              {{ st.assessment }}
+            {% else %}
+              —
+            {% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  {% if syllabus.teaching_philosophy %}
+    <div class="section-title">3. Философия преподавания и обучения</div>
+    <div class="cell-pre">{{ syllabus.teaching_philosophy }}</div>
+  {% endif %}
+
+  {% if syllabus.course_policy %}
+    <div class="section-title">Политика курса</div>
+    <div class="cell-pre">{{ syllabus.course_policy }}</div>
+  {% endif %}
+
+  {% if syllabus.academic_integrity_policy %}
+    <div class="section-title">Академическая честность и использование ИИ</div>
+    <div class="cell-pre">{{ syllabus.academic_integrity_policy }}</div>
+  {% endif %}
+
+  {% if syllabus.inclusive_policy %}
+    <div class="section-title">Инклюзивное академическое сообщество</div>
+    <div class="cell-pre">{{ syllabus.inclusive_policy }}</div>
+  {% endif %}
+
+  <div class="section-title">Система оценки знаний / Grading System</div>
+  <table class="grading-table" style="width: 100%; border-collapse: collapse; font-size: 10pt; margin-top: 10px;">
+      <thead>
+          <tr style="background-color: #f0f0f0;">
+              <th>Буквенная оценка<br>(Letter Grade)</th>
+              <th>Цифровой эквивалент<br>(Digital Equivalent)</th>
+              <th>Баллы<br>(Points %)</th>
+              <th>Традиционная система<br>(Traditional System)</th>
+          </tr>
+      </thead>
+      <tbody>
+          <tr><td>A</td><td>4.0</td><td>95-100</td><td rowspan="2">Отлично (Excellent)</td></tr>
+          <tr><td>A-</td><td>3.67</td><td>90-94</td></tr>
+          <tr><td>B+</td><td>3.33</td><td>85-89</td><td rowspan="3">Хорошо (Good)</td></tr>
+          <tr><td>B</td><td>3.0</td><td>80-84</td></tr>
+          <tr><td>B-</td><td>2.67</td><td>75-79</td></tr>
+          <tr><td>C+</td><td>2.33</td><td>70-74</td><td rowspan="3">Удовлетворительно (Satisfactory)</td></tr>
+          <tr><td>C</td><td>2.0</td><td>65-69</td></tr>
+          <tr><td>C-</td><td>1.67</td><td>60-64</td></tr>
+          <tr><td>D+</td><td>1.33</td><td>55-59</td><td rowspan="2">Неудовлетворительно (Unsatisfactory)</td></tr>
+          <tr><td>D-</td><td>1.0</td><td>50-54</td></tr>
+          <tr><td>F</td><td>0</td><td>0-49</td><td>Неудовлетворительно (Fail)</td></tr>
+      </tbody>
+  </table>
+  {% if main_literature_list or additional_literature_list %}
+    <div class="section-title">4. Список литературы</div>
+    {% if main_literature_list %}
+      <div class="subsection-title">Обязательная литература</div>
+      <ul>
+        {% for item in main_literature_list %}
+          <li>{{ item }}</li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+    {% if additional_literature_list %}
+      <div class="subsection-title">Дополнительная литература</div>
+      <ul>
+        {% for item in additional_literature_list %}
+          <li>{{ item }}</li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+  {% endif %}
+
+  {% if syllabus.appendix %}
+    <div class="section-title">Приложения</div>
+    <div class="cell-pre">{{ syllabus.appendix }}</div>
+  {% endif %}
+</body>
+</html>

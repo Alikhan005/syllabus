@@ -1,0 +1,192 @@
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.core.exceptions import PermissionDenied
+from django.db.models import Prefetch
+from django.shortcuts import get_object_or_404, redirect, render
+from django.views.decorators.http import require_POST
+
+from catalog.models import Course
+from core.announcements import announcement_author_role_label, send_announcement_email
+from core.forms import AnnouncementForm
+from core.models import Announcement
+from core.notifications import build_dashboard_notifications, count_unread_notifications
+from syllabi.models import Syllabus
+from syllabi.permissions import shared_syllabi_queryset
+from workflow.models import SyllabusStatusLog
+
+
+def _can_manage_announcements(user) -> bool:
+    return bool(getattr(user, "can_manage_announcements", False))
+
+
+def _reviewer_label_from_status_log(status_log: SyllabusStatusLog | None) -> str:
+    if not status_log:
+        return ""
+
+    if status_log.from_status == Syllabus.Status.AI_CHECK and not status_log.changed_by:
+        return "ИИ"
+    if status_log.from_status == Syllabus.Status.REVIEW_UMU:
+        return "УМУ"
+    if status_log.from_status == Syllabus.Status.REVIEW_DEAN:
+        return "деканата"
+
+    actor_role = getattr(status_log.changed_by, "role", "")
+    if actor_role == "umu":
+        return "УМУ"
+    if actor_role == "dean":
+        return "деканата"
+    if actor_role == "admin":
+        return "администратора"
+    return "проверяющего"
+
+
+def _build_dashboard_notifications(user, limit: int | None = 6) -> list[dict]:
+    return build_dashboard_notifications(user, limit=limit)
+
+
+def _count_unread_notifications(user, last_seen_at=None) -> int:
+    return count_unread_notifications(user)
+
+
+def _build_dashboard_context(request, announcement_form=None):
+    role = request.user.role
+    my_courses_count = Course.objects.filter(owner=request.user).count()
+    shared_courses_count = Course.objects.filter(is_shared=True).count()
+    syllabi_count = Syllabus.objects.filter(creator=request.user).count()
+    shared_syllabi_count = shared_syllabi_queryset(request.user).count()
+    announcements = list(Announcement.objects.select_related("created_by").all()[:6])
+    can_manage_announcements = _can_manage_announcements(request.user)
+    for item in announcements:
+        item.can_delete = request.user.can_delete_announcement(item)
+        item.author_role_label = announcement_author_role_label(item.created_by)
+        item.author_name = (
+            item.created_by.get_full_name() or item.created_by.username if item.created_by else "Система"
+        )
+
+    pending_dean = Syllabus.objects.none()
+    pending_umu = Syllabus.objects.none()
+    my_reviews = Syllabus.objects.none()
+
+    if role in ["dean", "admin"]:
+        pending_dean = (
+            Syllabus.objects.filter(status=Syllabus.Status.REVIEW_DEAN)
+            .select_related("course", "creator")
+            .order_by("-updated_at")[:10]
+        )
+
+    if role in ["umu", "admin"]:
+        pending_umu = (
+            Syllabus.objects.filter(status=Syllabus.Status.REVIEW_UMU)
+            .select_related("course", "creator")
+            .order_by("-updated_at")[:10]
+        )
+
+    if getattr(request.user, "is_teacher_like", False):
+        correction_logs_qs = (
+            SyllabusStatusLog.objects.filter(to_status=Syllabus.Status.CORRECTION)
+            .select_related("changed_by")
+            .order_by("-changed_at")
+        )
+        my_reviews = list(
+            Syllabus.objects.filter(
+                creator=request.user,
+                status__in=[
+                    Syllabus.Status.AI_CHECK,
+                    Syllabus.Status.CORRECTION,
+                    Syllabus.Status.REVIEW_DEAN,
+                    Syllabus.Status.REVIEW_UMU,
+                    Syllabus.Status.APPROVED,
+                    Syllabus.Status.REJECTED,
+                ],
+            )
+            .select_related("course")
+            .prefetch_related(
+                Prefetch("status_logs", queryset=correction_logs_qs, to_attr="correction_logs_prefetched")
+            )
+            .order_by("-updated_at")[:10]
+        )
+        for syllabus in my_reviews:
+            syllabus.correction_source_label = ""
+            syllabus.correction_comment_preview = ""
+            if syllabus.status != Syllabus.Status.CORRECTION:
+                continue
+
+            correction_logs = getattr(syllabus, "correction_logs_prefetched", [])
+            latest_log = correction_logs[0] if correction_logs else None
+            if not latest_log:
+                continue
+
+            syllabus.correction_source_label = _reviewer_label_from_status_log(latest_log)
+            syllabus.correction_comment_preview = (latest_log.comment or "").strip()
+
+    if announcement_form is None and can_manage_announcements:
+        announcement_form = AnnouncementForm()
+
+    return {
+        "role": role,
+        "my_courses_count": my_courses_count,
+        "shared_courses_count": shared_courses_count,
+        "syllabi_count": syllabi_count,
+        "shared_syllabi_count": shared_syllabi_count,
+        "pending_dean": pending_dean,
+        "pending_umu": pending_umu,
+        "my_reviews": my_reviews,
+        "announcements": announcements,
+        "announcement_form": announcement_form,
+        "can_manage_announcements": can_manage_announcements,
+    }
+
+
+@login_required
+def dashboard(request):
+    context = _build_dashboard_context(request)
+    return render(request, "dashboard.html", context)
+
+
+@login_required
+@require_POST
+def create_announcement(request):
+    if not _can_manage_announcements(request.user):
+        raise PermissionDenied("Нет доступа.")
+
+    form = AnnouncementForm(request.POST)
+    if form.is_valid():
+        announcement = form.save(commit=False)
+        announcement.created_by = request.user
+        announcement.save()
+
+        try:
+            sent_count = send_announcement_email(announcement, request=request)
+        except Exception:
+            messages.warning(
+                request,
+                "Объявление опубликовано, но отправка писем не удалась. Проверьте почтовые настройки.",
+            )
+        else:
+            if sent_count:
+                messages.success(
+                    request,
+                    f"Объявление опубликовано и отправлено на почту {sent_count} получателям.",
+                )
+            else:
+                messages.success(
+                    request,
+                    "Объявление опубликовано, но активных получателей с email не найдено.",
+                )
+        return redirect("dashboard")
+
+    messages.error(request, "Заполните заголовок и текст.")
+    context = _build_dashboard_context(request, announcement_form=form)
+    return render(request, "dashboard.html", context)
+
+
+@login_required
+@require_POST
+def delete_announcement(request, pk):
+    announcement = get_object_or_404(Announcement, pk=pk)
+    if not request.user.can_delete_announcement(announcement):
+        raise PermissionDenied("Недостаточно прав для удаления объявления.")
+
+    announcement.delete()
+    messages.success(request, "Объявление удалено.")
+    return redirect("dashboard")
