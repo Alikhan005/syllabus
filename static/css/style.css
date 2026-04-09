@@ -2278,6 +2278,18 @@ details[open] summary::after {
   line-height: 1.45;
 }
 
+.callout__content {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.callout__title {
+  font-weight: 700;
+  color: var(--ink-900);
+}
+
 .action-bar {
   display: flex;
   align-items: center;
@@ -2289,6 +2301,17 @@ details[open] summary::after {
   border: 1px solid rgba(148, 163, 184, 0.25);
   background: rgba(255, 255, 255, 0.92);
   box-shadow: 0 12px 26px rgba(15, 23, 42, 0.08);
+}
+
+.action-bar__content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.action-bar__title {
+  font-weight: 700;
+  color: var(--ink-900);
 }
 
 .action-bar__hint {
@@ -2309,9 +2332,34 @@ details[open] summary::after {
   margin-bottom: 0.3rem;
 }
 
+.empty-state__eyebrow {
+  margin-bottom: 0.45rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent-dark);
+}
+
 .empty-state__text {
   color: var(--ink-500);
   font-size: 0.9rem;
+}
+
+.empty-state__steps {
+  display: grid;
+  gap: 0.65rem;
+  margin: 1rem auto 0;
+  max-width: 44rem;
+  text-align: left;
+}
+
+.empty-state__step {
+  padding: 0.8rem 0.9rem;
+  border-radius: 0.95rem;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  background: rgba(255, 255, 255, 0.85);
+  color: var(--ink-700);
 }
 
 .two-col {

@@ -23,7 +23,6 @@ def announcement_author_role_label(user) -> str:
     role_labels = {
         User.Role.DEAN: "Деканат",
         User.Role.UMU: "УМУ",
-        User.Role.PROGRAM_LEADER: "Руководитель программы",
         User.Role.TEACHER: "Преподаватель",
     }
     return role_labels.get(getattr(user, "role", ""), user.get_role_display())
@@ -36,7 +35,7 @@ def announcement_email_recipients() -> list[str]:
     queryset = (
         User.objects.filter(
             is_active=True,
-            role__in=[User.Role.TEACHER, User.Role.PROGRAM_LEADER],
+            role__in=[User.Role.TEACHER],
         )
         .exclude(email="")
         .values_list("email", flat=True)

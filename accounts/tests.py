@@ -18,7 +18,6 @@ class AccountFormsTests(TestCase):
             allowed_roles,
             {
                 User.Role.TEACHER,
-                User.Role.PROGRAM_LEADER,
                 User.Role.DEAN,
                 User.Role.UMU,
             },

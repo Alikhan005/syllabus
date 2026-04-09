@@ -7,7 +7,7 @@
 <div class="dashboard-hero mb-6">
   <h1 class="text-3xl font-bold dashboard-hero__title">Панель управления — {{ user.get_role_display }}</h1>
   <p class="text-gray-600 mt-2 dashboard-hero__subtitle">
-    {% if user.role == "teacher" or user.role == "program_leader" %}
+    {% if user.role == "teacher" %}
       Управляйте курсами, темами и силлабусами в едином пространстве AlmaU.
     {% elif user.role == "dean" %}
       Просматривайте силлабусы на согласовании и принимайте решения как декан.
@@ -94,7 +94,7 @@
     <h2 class="text-xl font-semibold mb-3">Первые шаги</h2>
     <ol class="list-decimal ml-6 text-slate-600 space-y-2">
       <li>Сначала создайте курс и заполните банк тем.</li>
-      <li>Потом выберите один путь для силлабуса: заполнить его вручную в системе или загрузить готовый PDF/Word.</li>
+      <li>Потом загрузите готовый PDF/Word-файл силлабуса для проверки и дальнейшего согласования.</li>
       <li>После проверки ИИ исправьте замечания и отправьте документ на согласование.</li>
     </ol>
     <p class="text-sm text-slate-500 mt-2">

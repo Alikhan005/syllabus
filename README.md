@@ -9,7 +9,6 @@
 
 Жүйеде келесі рөлдер бар:
 - `teacher`
-- `program_leader`
 - `dean`
 - `umu`
 - `admin`

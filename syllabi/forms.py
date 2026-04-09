@@ -2,6 +2,7 @@ from pathlib import Path
 
 from django import forms
 from catalog.models import Course
+from catalog.services import dedupe_courses_queryset
 from .models import Syllabus
 
 
@@ -51,6 +52,8 @@ class SyllabusForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         user = kwargs.pop("user", None)
         super().__init__(*args, **kwargs)
+        self.course_canonical_map = {}
+        self.show_course_owner = False
         
         # Мы убрали принудительное self.fields['pdf_file'].required = True
         # Теперь валидация (нужен файл или нет) управляется логикой во views.py
@@ -58,11 +61,26 @@ class SyllabusForm(forms.ModelForm):
         if user:
             # Фильтрация курсов: Админ видит всё, Препод — только свои
             if getattr(user, "role", None) == "admin" or user.is_superuser:
-                self.fields["course"].queryset = Course.objects.all()
+                base_queryset = Course.objects.all()
+                self.show_course_owner = True
             else:
-                self.fields["course"].queryset = user.courses.all()
+                base_queryset = user.courses.all()
+
+            deduped_queryset, canonical_map = dedupe_courses_queryset(base_queryset)
+            self.fields["course"].queryset = deduped_queryset
+            self.course_canonical_map = canonical_map
         
         self.fields["course"].empty_label = "Выберите дисциплину"
+        self.fields["course"].label_from_instance = self._course_label_from_instance
+
+    def _course_label_from_instance(self, course: Course) -> str:
+        label = course.code
+        title = course.display_title
+        if title:
+            label = f"{label} - {title}"
+        if self.show_course_owner:
+            label = f"{label} ({course.owner})"
+        return label
 
 
     def clean_pdf_file(self):

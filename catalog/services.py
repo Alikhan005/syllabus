@@ -1,3 +1,5 @@
+from django.db.models import Count
+
 from catalog.models import Course
 
 
@@ -71,3 +73,34 @@ def ensure_default_courses(user) -> list[Course]:
             )
         )
     return created
+
+
+def _normalized_course_code(code: str) -> str:
+    return (code or "").strip().casefold()
+
+
+def dedupe_courses_queryset(queryset):
+    annotated = queryset.select_related("owner").annotate(
+        topic_count=Count("topics", distinct=True),
+        syllabus_count=Count("syllabi", distinct=True),
+    ).order_by("owner_id", "code", "-syllabus_count", "-topic_count", "-id")
+
+    canonical_ids = []
+    canonical_map = {}
+    seen = {}
+
+    for course in annotated:
+        key = (course.owner_id, _normalized_course_code(course.code))
+        canonical_id = seen.get(key)
+        if canonical_id is None:
+            canonical_id = course.id
+            seen[key] = canonical_id
+            canonical_ids.append(course.id)
+        canonical_map[course.id] = canonical_id
+
+    deduped_queryset = (
+        Course.objects.filter(pk__in=canonical_ids)
+        .select_related("owner")
+        .order_by("code", "id")
+    )
+    return deduped_queryset, canonical_map

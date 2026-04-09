@@ -28,7 +28,6 @@ class User(AbstractUser):
 
     class Role(models.TextChoices):
         TEACHER = "teacher", "Преподаватель"
-        PROGRAM_LEADER = "program_leader", "Руководитель программы"
         DEAN = "dean", "Деканат"
         UMU = "umu", "УМУ"
         ADMIN = "admin", "Админ"
@@ -60,7 +59,7 @@ class User(AbstractUser):
     def is_teacher_like(self) -> bool:
         if self.is_admin_like:
             return True
-        if self.role in {self.Role.TEACHER, self.Role.PROGRAM_LEADER}:
+        if self.role == self.Role.TEACHER:
             return True
         if self.role == self.Role.DEAN:
             return self.can_teach

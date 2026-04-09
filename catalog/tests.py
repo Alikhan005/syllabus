@@ -2,6 +2,7 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
 
+from catalog.forms import CourseForm
 from catalog.models import Course, Topic, TopicLiterature, TopicQuestion
 
 
@@ -79,6 +80,129 @@ class CatalogViewTests(TestCase):
 
         self.assertEqual(response.status_code, 403)
 
+    def test_private_course_detail_denies_umu(self):
+        owner = self._create_user("catalog_teacher_private_owner")
+        umu = self._create_user("catalog_umu_viewer", "umu")
+        course = Course.objects.create(
+            owner=owner,
+            code="CS102U",
+            title_ru="Приватный курс",
+            available_languages="ru",
+            is_shared=False,
+        )
+
+        self.client.force_login(umu)
+        response = self.client.get(reverse("course_detail", args=[course.pk]))
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_shared_course_detail_hides_management_actions_for_other_teacher(self):
+        owner = self._create_user("catalog_teacher_shared_owner")
+        viewer = self._create_user("catalog_teacher_shared_viewer")
+        course = Course.objects.create(
+            owner=owner,
+            code="CS102S",
+            title_ru="Общий курс",
+            available_languages="ru",
+            is_shared=True,
+        )
+        Topic.objects.create(
+            course=course,
+            order_index=1,
+            title_ru="Тема 1",
+            default_hours=2,
+        )
+
+        self.client.force_login(viewer)
+        response = self.client.get(reverse("course_detail", args=[course.pk]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, reverse("course_edit", args=[course.pk]))
+        self.assertNotContains(response, reverse("topic_create", args=[course.pk]))
+        self.assertContains(response, "Это общий курс в режиме просмотра")
+        self.assertContains(response, "Взять как основу")
+
+    def test_shared_course_without_topics_shows_view_mode_message_for_other_teacher(self):
+        owner = self._create_user("catalog_teacher_view_only_owner")
+        viewer = self._create_user("catalog_teacher_view_only_viewer")
+        course = Course.objects.create(
+            owner=owner,
+            code="CS102V",
+            title_ru="Пустой общий курс",
+            available_languages="ru",
+            is_shared=True,
+        )
+
+        self.client.force_login(viewer)
+        response = self.client.get(reverse("course_detail", args=[course.pk]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Режим просмотра")
+        self.assertContains(response, "В этом общем курсе пока нет тем")
+        self.assertNotContains(response, "Добавьте первую тему курса")
+
+    def test_shared_course_edit_returns_403_for_other_teacher(self):
+        owner = self._create_user("catalog_teacher_edit_owner")
+        viewer = self._create_user("catalog_teacher_edit_viewer")
+        course = Course.objects.create(
+            owner=owner,
+            code="CS102E",
+            title_ru="Общий курс для проверки",
+            available_languages="ru",
+            is_shared=True,
+        )
+
+        self.client.force_login(viewer)
+        response = self.client.get(reverse("course_edit", args=[course.pk]))
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_shared_course_topic_create_returns_403_for_other_teacher(self):
+        owner = self._create_user("catalog_teacher_topic_owner")
+        viewer = self._create_user("catalog_teacher_topic_viewer")
+        course = Course.objects.create(
+            owner=owner,
+            code="CS102T",
+            title_ru="Общий курс для темы",
+            available_languages="ru",
+            is_shared=True,
+        )
+
+        self.client.force_login(viewer)
+        response = self.client.get(reverse("topic_create", args=[course.pk]))
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_course_create_rejects_duplicate_code_for_same_owner(self):
+        teacher = self._create_user("catalog_teacher_duplicate")
+        Course.objects.create(
+            owner=teacher,
+            code="CS101",
+            title_ru="Существующий курс",
+            available_languages="ru",
+        )
+        self.client.force_login(teacher)
+
+        response = self.client.post(reverse("course_create"), self._course_payload(code="CS101"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Курс с таким кодом уже существует")
+        self.assertEqual(Course.objects.filter(owner=teacher, code="CS101").count(), 1)
+
+    def test_course_form_allows_same_code_for_different_owner(self):
+        owner = self._create_user("catalog_teacher_original")
+        another_owner = self._create_user("catalog_teacher_other")
+        Course.objects.create(
+            owner=owner,
+            code="CS101",
+            title_ru="Курс первого преподавателя",
+            available_languages="ru",
+        )
+
+        form = CourseForm(data=self._course_payload(code="CS101"), user=another_owner)
+
+        self.assertTrue(form.is_valid())
+
     def test_topic_create_saves_formsets(self):
         teacher = self._create_user("catalog_teacher_topic")
         course = Course.objects.create(
@@ -135,3 +259,31 @@ class CatalogViewTests(TestCase):
         self.assertEqual(forked.topics.count(), 1)
         self.assertEqual(forked.topics.first().literature.count(), 1)
         self.assertEqual(forked.topics.first().questions.count(), 1)
+
+    def test_courses_list_hides_duplicate_codes_and_keeps_course_with_content(self):
+        teacher = self._create_user("catalog_teacher_list")
+        hidden_duplicate = Course.objects.create(
+            owner=teacher,
+            code="CS105",
+            title_ru="Пустой дубль",
+            available_languages="ru",
+        )
+        visible_course = Course.objects.create(
+            owner=teacher,
+            code="CS105",
+            title_ru="Основной курс",
+            available_languages="ru",
+        )
+        Topic.objects.create(
+            course=visible_course,
+            order_index=1,
+            title_ru="Тема 1",
+            default_hours=2,
+        )
+
+        self.client.force_login(teacher)
+        response = self.client.get(reverse("courses_list"))
+
+        self.assertEqual(response.status_code, 200)
+        courses = list(response.context["courses"])
+        self.assertEqual([course.pk for course in courses], [visible_course.pk])

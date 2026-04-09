@@ -12,22 +12,94 @@
       </p>
     {% endif %}
   </div>
-  {% if user == course.owner or user.can_edit_content %}
+  {% if can_manage_course %}
     <a href="{% url 'course_edit' course.pk %}" class="btn-primary w-full sm:w-auto justify-center">Редактировать курс</a>
+  {% elif can_fork_course %}
+    <form method="post" action="{% url 'course_fork' course.pk %}" class="inline">
+      {% csrf_token %}
+      <button type="submit" class="btn-secondary w-full sm:w-auto justify-center">Взять как основу</button>
+    </form>
   {% endif %}
 </div>
 
-<div class="callout mb-4">
-  <div class="callout__badge">i</div>
-  <div class="callout__text">
-    Темы курса — основа силлабуса. Сначала заполните темы, затем используйте их при создании силлабуса на семестр.
+<div class="stepper mb-4">
+  <div class="stepper__item is-done">
+    <span class="stepper__badge">1</span>
+    <span>Курс создан</span>
+  </div>
+  <div class="stepper__item {% if topics %}is-done{% else %}is-active{% endif %}">
+    <span class="stepper__badge">2</span>
+    <span>Темы курса</span>
+  </div>
+  <div class="stepper__item {% if topics %}is-active{% endif %}">
+    <span class="stepper__badge">3</span>
+    <span>Силлабус</span>
   </div>
 </div>
 
+<div class="callout mb-4">
+  <div class="callout__badge">{% if topics %}3{% else %}2{% endif %}</div>
+  <div class="callout__content">
+    {% if can_manage_course %}
+      {% if topics %}
+        <div class="callout__title">Темы уже добавлены — можно переходить к силлабусу</div>
+        <div class="callout__text">
+          Следующий шаг: загрузите готовый PDF/Word-файл силлабуса.
+          Курс уже будет выбран автоматически.
+        </div>
+      {% else %}
+        <div class="callout__title">Курс уже создан. Следующий шаг — добавить темы</div>
+        <div class="callout__text">
+          Пустой экран на этом этапе — это нормально. Сначала заполните хотя бы одну тему курса,
+          и только потом переходите к загрузке силлабуса.
+        </div>
+      {% endif %}
+    {% else %}
+      <div class="callout__title">Это общий курс в режиме просмотра</div>
+      {% if topics %}
+        <div class="callout__text">
+          Темы курса доступны для просмотра. Редактировать курс, добавлять темы и загружать силлабус может только автор.
+        </div>
+      {% else %}
+        <div class="callout__text">
+          Автор пока не добавил темы. Вы можете просматривать курс, но изменять его содержимое может только автор.
+        </div>
+      {% endif %}
+    {% endif %}
+  </div>
+</div>
+
+{% if can_manage_course and topics %}
+  <div class="action-bar mb-4">
+    <div class="action-bar__content">
+      <div class="action-bar__title">Что можно сделать дальше</div>
+      <div class="action-bar__hint">Откроется страница загрузки с уже выбранным этим курсом.</div>
+    </div>
+    <div class="page-actions">
+      <a href="{% url 'upload_pdf' %}?course={{ course.pk }}" class="btn-primary">Загрузить PDF/Word</a>
+    </div>
+  </div>
+{% elif can_fork_course %}
+  <div class="action-bar mb-4">
+    <div class="action-bar__content">
+      <div class="action-bar__title">Хотите работать с этим курсом у себя?</div>
+      <div class="action-bar__hint">Система создаст копию курса в ваших курсах. Её уже можно будет редактировать.</div>
+    </div>
+    <div class="page-actions">
+      <form method="post" action="{% url 'course_fork' course.pk %}" class="inline">
+        {% csrf_token %}
+        <button type="submit" class="btn-primary">Взять как основу</button>
+      </form>
+    </div>
+  </div>
+{% endif %}
+
 <div class="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center mb-2">
   <h2 class="text-xl font-semibold">Темы курса</h2>
-  {% if user == course.owner or user.can_edit_content %}
-    <a href="{% url 'topic_create' course.pk %}" class="btn-secondary w-full sm:w-auto justify-center">Добавить тему</a>
+  {% if can_manage_course %}
+    <a href="{% url 'topic_create' course.pk %}" class="btn-secondary w-full sm:w-auto justify-center">
+      {% if topics %}Добавить тему{% else %}Добавить первую тему{% endif %}
+    </a>
   {% endif %}
 </div>
 
@@ -96,7 +168,7 @@
           </details>
         </td>
         <td class="p-2 responsive-table__actions" data-label="Действие">
-          {% if user == course.owner or user.can_edit_content %}
+          {% if can_manage_course %}
             <a href="{% url 'topic_edit' course.pk topic.pk %}" class="link">Редактировать</a>
           {% endif %}
         </td>
@@ -106,12 +178,35 @@
   </table>
 {% else %}
   <div class="empty-state">
-    <div class="empty-state__title">Темы пока не добавлены</div>
-    <div class="empty-state__text">Добавьте темы, чтобы сформировать структуру силлабуса по неделям.</div>
-    {% if user == course.owner or user.can_edit_content %}
-      <div class="page-actions mt-4">
-        <a href="{% url 'topic_create' course.pk %}" class="btn-primary w-full sm:w-auto justify-center">Добавить тему</a>
+    {% if can_manage_course %}
+      <div class="empty-state__eyebrow">Следующий шаг</div>
+      <div class="empty-state__title">Добавьте первую тему курса</div>
+      <div class="empty-state__text">
+        Курс уже создан. Теперь нужно заполнить темы, из которых потом будет собираться силлабус по неделям.
       </div>
+      <div class="empty-state__steps">
+        <div class="empty-state__step"><strong>1.</strong> Нажмите «Добавить первую тему».</div>
+        <div class="empty-state__step"><strong>2.</strong> Укажите название темы, тип занятия и количество часов.</div>
+        <div class="empty-state__step"><strong>3.</strong> Сохраните тему и при необходимости добавьте ещё темы курса.</div>
+        <div class="empty-state__step"><strong>4.</strong> После этого переходите к загрузке PDF/Word-файла силлабуса.</div>
+      </div>
+      <div class="page-actions mt-4">
+        <a href="{% url 'topic_create' course.pk %}" class="btn-primary w-full sm:w-auto justify-center">Добавить первую тему</a>
+      </div>
+    {% else %}
+      <div class="empty-state__eyebrow">Режим просмотра</div>
+      <div class="empty-state__title">В этом общем курсе пока нет тем</div>
+      <div class="empty-state__text">
+        Вы открыли общий курс другого автора. Добавлять темы и менять содержимое может только владелец курса.
+      </div>
+      {% if can_fork_course %}
+        <div class="page-actions mt-4">
+          <form method="post" action="{% url 'course_fork' course.pk %}" class="inline">
+            {% csrf_token %}
+            <button type="submit" class="btn-primary w-full sm:w-auto justify-center">Взять как основу</button>
+          </form>
+        </div>
+      {% endif %}
     {% endif %}
   </div>
 {% endif %}

@@ -34,16 +34,6 @@ USER_SPECS = [
         "can_teach": False,
     },
     {
-        "username": "program_leader_demo",
-        "email": "pl_demo@almau.local",
-        "first_name": "Aigerim",
-        "last_name": "Tulegen",
-        "role": "program_leader",
-        "is_superuser": False,
-        "is_staff": False,
-        "can_teach": False,
-    },
-    {
         "username": "dean_demo",
         "email": "dean_demo@almau.local",
         "first_name": "Bolat",

@@ -9,6 +9,7 @@ from django.views.decorators.http import require_POST
 from accounts.decorators import content_editor_required
 from .forms import CourseForm, TopicForm, TopicLiteratureFormSet, TopicQuestionFormSet
 from .models import Course, Topic, TopicLiterature, TopicQuestion
+from .services import dedupe_courses_queryset
 
 
 def _build_fork_code(user, source_code: str) -> str:
@@ -23,10 +24,39 @@ def _build_fork_code(user, source_code: str) -> str:
     return candidate
 
 
+def _can_manage_course(user, course: Course) -> bool:
+    return bool(course.owner == user or getattr(user, "is_admin_like", False) or getattr(user, "is_superuser", False))
+
+
+def _can_fork_course(user, course: Course) -> bool:
+    return bool(
+        course.is_shared
+        and course.owner != user
+        and getattr(user, "can_edit_content", False)
+        and getattr(user, "can_view_shared_courses", False)
+    )
+
+
+def _can_view_course(user, course: Course) -> bool:
+    return bool(
+        course.owner == user
+        or course.is_shared
+        or getattr(user, "is_admin_like", False)
+        or getattr(user, "is_superuser", False)
+    )
+
+
+def _get_course_for_management(user, pk: int) -> Course:
+    course = get_object_or_404(Course, pk=pk)
+    if not _can_manage_course(user, course):
+        raise PermissionDenied("Вы не можете редактировать этот курс.")
+    return course
+
+
 @login_required
 @content_editor_required
 def courses_list(request):
-    courses = Course.objects.filter(owner=request.user)
+    courses, _ = dedupe_courses_queryset(Course.objects.filter(owner=request.user))
     return render(request, "catalog/courses_list.html", {"courses": courses})
 
 
@@ -34,29 +64,29 @@ def courses_list(request):
 @content_editor_required
 def course_create(request):
     if request.method == "POST":
-        form = CourseForm(request.POST)
+        form = CourseForm(request.POST, user=request.user)
         if form.is_valid():
             course = form.save(commit=False)
             course.owner = request.user
             course.save()
             return redirect("course_detail", pk=course.pk)
     else:
-        form = CourseForm()
+        form = CourseForm(user=request.user)
     return render(request, "catalog/course_form.html", {"form": form})
 
 
 @login_required
 @content_editor_required
 def course_edit(request, pk):
-    course = get_object_or_404(Course, pk=pk, owner=request.user)
+    course = _get_course_for_management(request.user, pk)
     if request.method == "POST":
-        form = CourseForm(request.POST, instance=course)
+        form = CourseForm(request.POST, instance=course, user=request.user)
         if form.is_valid():
             course = form.save(commit=False)
             course.save()
             return redirect("course_detail", pk=course.pk)
     else:
-        form = CourseForm(instance=course)
+        form = CourseForm(instance=course, user=request.user)
     return render(request, "catalog/course_form.html", {"form": form})
 
 
@@ -66,22 +96,25 @@ def course_detail(request, pk):
         Course.objects.prefetch_related("topics__literature", "topics__questions"),
         pk=pk,
     )
-    if not (
-        course.owner == request.user
-        or course.is_shared
-        or getattr(request.user, "is_admin_like", False)
-        or getattr(request.user, "role", "") == "umu"
-        or getattr(request.user, "is_superuser", False)
-    ):
+    if not _can_view_course(request.user, course):
         raise PermissionDenied("Доступ к этому курсу запрещен.")
     topics = course.topics.order_by("order_index")
-    return render(request, "catalog/course_detail.html", {"course": course, "topics": topics})
+    return render(
+        request,
+        "catalog/course_detail.html",
+        {
+            "course": course,
+            "topics": topics,
+            "can_manage_course": _can_manage_course(request.user, course),
+            "can_fork_course": _can_fork_course(request.user, course),
+        },
+    )
 
 
 @login_required
 @content_editor_required
 def topic_create(request, course_pk):
-    course = get_object_or_404(Course, pk=course_pk, owner=request.user)
+    course = _get_course_for_management(request.user, course_pk)
     if request.method == "POST":
         form = TopicForm(request.POST)
         literature_formset = TopicLiteratureFormSet(request.POST, prefix="lit")
@@ -123,7 +156,7 @@ def topic_create(request, course_pk):
 @login_required
 @content_editor_required
 def topic_edit(request, course_pk, pk):
-    course = get_object_or_404(Course, pk=course_pk, owner=request.user)
+    course = _get_course_for_management(request.user, course_pk)
     topic = get_object_or_404(Topic, pk=pk, course=course)
     if request.method == "POST":
         form = TopicForm(request.POST, instance=topic)

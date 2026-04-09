@@ -240,7 +240,7 @@
     <p class="text-slate-500 mb-6">Загрузите PDF или Word-файл для автоматической проверки ИИ.</p>
 
     <p class="text-xs text-slate-500 mb-6">
-        Это альтернативный сценарий. Если силлабус уже заполнен вручную выше, файл можно не загружать.
+        Если у вас есть готовый документ, загрузите PDF или Word-файл для автоматической проверки ИИ.
     </p>
     <form action="{% url 'syllabus_upload_file' pk=syllabus.pk %}" method="post" enctype="multipart/form-data" class="inline-block syllabus-upload__form">
         {% csrf_token %}

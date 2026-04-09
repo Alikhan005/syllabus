@@ -241,7 +241,7 @@ def _build_edit_panel_context(syllabus: Syllabus, can_edit_constructor: bool) ->
         return {
             **base_context,
             "show_edit_panel_after_feedback": True,
-            "edit_panel_title": "Доработка вручную в системе",
+            "edit_panel_title": "Доработка в системе",
             "edit_panel_description": (
                 "Исправьте замечания в темах и деталях силлабуса, затем отправьте его "
                 "на повторную проверку ИИ."
@@ -255,14 +255,13 @@ def _build_edit_panel_context(syllabus: Syllabus, can_edit_constructor: bool) ->
     return {
         **base_context,
         "show_edit_panel_before_feedback": True,
-        "edit_panel_title": "Заполнение силлабуса вручную",
+        "edit_panel_title": "Подготовка силлабуса в системе",
         "edit_panel_description": (
             "Шаг 1: выберите темы из банка. Шаг 2: заполните детали. "
             "Шаг 3: отправьте на проверку ИИ."
         ),
         "edit_panel_hint": (
-            "Выбирайте один сценарий: заполнение вручную или загрузка готового файла. "
-            "Одновременно оба сценария не обязательны."
+            "Заполните содержание в системе и отправьте силлабус на проверку ИИ."
         ),
         "edit_panel_submit_label": "Отправить на проверку ИИ",
     }
@@ -419,6 +418,17 @@ def syllabus_create(request):
             return redirect("syllabus_detail", pk=syllabus.pk)
     else:
         form = SyllabusForm(user=request.user)
+        preselected_course_id = request.GET.get("course")
+        if preselected_course_id:
+            try:
+                requested_course_id = int(preselected_course_id)
+            except (TypeError, ValueError):
+                requested_course_id = None
+
+            if requested_course_id is not None:
+                canonical_course_id = form.course_canonical_map.get(requested_course_id, requested_course_id)
+                if form.fields["course"].queryset.filter(pk=canonical_course_id).exists():
+                    form.initial["course"] = canonical_course_id
 
     if not form.fields["course"].queryset.exists():
         messages.warning(request, "У вас нет доступных дисциплин. Обратитесь к администратору.")
@@ -456,6 +466,17 @@ def upload_pdf_view(request):
                 return redirect("syllabus_detail", pk=syllabus.pk)
     else:
         form = SyllabusForm(user=request.user)
+        preselected_course_id = request.GET.get("course")
+        if preselected_course_id:
+            try:
+                requested_course_id = int(preselected_course_id)
+            except (TypeError, ValueError):
+                requested_course_id = None
+
+            if requested_course_id is not None:
+                canonical_course_id = form.course_canonical_map.get(requested_course_id, requested_course_id)
+                if form.fields["course"].queryset.filter(pk=canonical_course_id).exists():
+                    form.initial["course"] = canonical_course_id
 
     if not form.fields["course"].queryset.exists():
         messages.warning(request, "У вас нет доступных дисциплин. Обратитесь к администратору.")

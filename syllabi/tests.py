@@ -49,6 +49,68 @@ class SyllabusRoleViewTests(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertTrue(Syllabus.objects.filter(creator=teacher, course=course).exists())
 
+    def test_syllabus_create_prefills_owned_course_from_query_param(self):
+        teacher = self._create_user("teacher_prefill", "teacher")
+        course = self._create_course(teacher, code="CS150")
+        self.client.force_login(teacher)
+
+        response = self.client.get(reverse("syllabus_create"), {"course": course.pk})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["form"].initial.get("course"), course.pk)
+
+    def test_upload_view_prefills_owned_course_from_query_param(self):
+        teacher = self._create_user("teacher_upload_prefill", "teacher")
+        course = self._create_course(teacher, code="CS160")
+        self.client.force_login(teacher)
+
+        response = self.client.get(reverse("upload_pdf"), {"course": course.pk})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["form"].initial.get("course"), course.pk)
+
+    def test_syllabus_form_hides_duplicate_codes_and_keeps_course_with_content(self):
+        teacher = self._create_user("teacher_dedupe_form", "teacher")
+        Course.objects.create(
+            owner=teacher,
+            code="CS170",
+            title_ru="Пустой дубль",
+            available_languages="ru",
+        )
+        canonical_course = Course.objects.create(
+            owner=teacher,
+            code="CS170",
+            title_ru="Основной курс",
+            available_languages="ru",
+        )
+        self._create_topic(canonical_course, title="Тема для канонического курса")
+
+        form = SyllabusForm(user=teacher)
+
+        self.assertEqual(list(form.fields["course"].queryset.values_list("id", flat=True)), [canonical_course.id])
+
+    def test_upload_view_prefills_canonical_course_when_duplicate_requested(self):
+        teacher = self._create_user("teacher_upload_duplicate_prefill", "teacher")
+        duplicate_course = Course.objects.create(
+            owner=teacher,
+            code="CS180",
+            title_ru="Пустой дубль",
+            available_languages="ru",
+        )
+        canonical_course = Course.objects.create(
+            owner=teacher,
+            code="CS180",
+            title_ru="Основной курс",
+            available_languages="ru",
+        )
+        self._create_topic(canonical_course, title="Тема для основного курса")
+        self.client.force_login(teacher)
+
+        response = self.client.get(reverse("upload_pdf"), {"course": duplicate_course.pk})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["form"].initial.get("course"), canonical_course.pk)
+
     def test_dean_cannot_create_syllabus(self):
         dean = self._create_user("dean_user", "dean")
         course = self._create_course(dean)
@@ -272,8 +334,8 @@ class SyllabusRoleViewTests(TestCase):
         response = self.client.get(reverse("syllabus_detail", args=[syllabus.pk]))
 
         self.assertEqual(response.status_code, 200)
-        self.assertNotContains(response, "Заполнение силлабуса вручную")
-        self.assertNotContains(response, "Ручная доработка в системе")
+        self.assertNotContains(response, "Подготовка силлабуса в системе")
+        self.assertNotContains(response, "Доработка в системе")
 
     def test_draft_without_file_still_shows_constructor(self):
         teacher = self._create_user("teacher_constructor_flow", "teacher")
@@ -290,7 +352,7 @@ class SyllabusRoleViewTests(TestCase):
         response = self.client.get(reverse("syllabus_detail", args=[syllabus.pk]))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Заполнение силлабуса вручную")
+        self.assertContains(response, "Подготовка силлабуса в системе")
 
     def test_send_to_ai_check_requires_post(self):
         teacher = self._create_user("teacher_send_ai_get", "teacher")

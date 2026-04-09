@@ -60,6 +60,7 @@ class CourseForm(forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
+        self.user = kwargs.pop("user", None)
         super().__init__(*args, **kwargs)
         if self.instance and self.instance.pk:
             self.fields["languages"].initial = self.instance.get_available_languages_list()
@@ -80,8 +81,26 @@ class CourseForm(forms.ModelForm):
         self.fields["languages"].help_text = "Отметьте языки, на которых будет доступен курс."
         self.fields["is_shared"].help_text = "Если включить, другие преподаватели смогут копировать этот курс."
 
+    def clean_code(self):
+        code = (self.cleaned_data.get("code") or "").strip()
+        owner = self.user or getattr(self.instance, "owner", None)
+        if not code or owner is None:
+            return code
+
+        duplicate_qs = Course.objects.filter(owner=owner, code__iexact=code)
+        if self.instance and self.instance.pk:
+            duplicate_qs = duplicate_qs.exclude(pk=self.instance.pk)
+
+        if duplicate_qs.exists():
+            raise forms.ValidationError(
+                "Курс с таким кодом уже существует. Откройте существующий курс или укажите другой код."
+            )
+
+        return code
+
     def save(self, commit=True):
         instance = super().save(commit=False)
+        instance.code = (self.cleaned_data.get("code") or instance.code or "").strip()
         langs = self.cleaned_data.get("languages", [])
         instance.available_languages = ",".join(langs)
         if commit:
