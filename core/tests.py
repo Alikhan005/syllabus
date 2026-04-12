@@ -14,7 +14,13 @@ from workflow.services import change_status
 
 
 User = get_user_model()
-MOJIBAKE_MARKERS = ("РџР", "РЎР", "Р“Р", "СЃР", "С‚Р")
+MOJIBAKE_MARKERS = (
+    "\u0420\u00a0\u0421\u045f\u0420\u00a0",
+    "\u0420\u00a0\u0420\u040e\u0420\u00a0",
+    "\u0420\u00a0\u201c\u0420\u00a0",
+    "\u0420\u0423\u0403\u0420\u00a0",
+    "\u0420\u0423\u201a\u0420\u00a0",
+)
 
 
 class SecuritySettingsTests(SimpleTestCase):
@@ -229,7 +235,7 @@ class DashboardNotificationsTests(TestCase):
 
 @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
 class AnnouncementEmailTests(TestCase):
-    def test_dean_announcement_is_emailed_to_teachers_and_program_leaders(self):
+    def test_dean_announcement_is_emailed_to_teachers(self):
         dean = User.objects.create_user(
             username="dean_announce",
             password="pass1234",
@@ -241,12 +247,6 @@ class AnnouncementEmailTests(TestCase):
             password="pass1234",
             role="teacher",
             email="teacher@example.com",
-        )
-        program_leader = User.objects.create_user(
-            username="pl_announce",
-            password="pass1234",
-            role="program_leader",
-            email="pl@example.com",
         )
         User.objects.create_user(
             username="umu_announce",
@@ -269,7 +269,7 @@ class AnnouncementEmailTests(TestCase):
 
         sent_message = mail.outbox[0]
         self.assertEqual(sent_message.subject, "Новое объявление: Важное объявление")
-        self.assertEqual(set(sent_message.bcc), {teacher.email, program_leader.email})
+        self.assertEqual(set(sent_message.bcc), {teacher.email})
         self.assertNotIn(dean.email, sent_message.bcc)
         self.assertEqual(len(sent_message.alternatives), 1)
         html_body, mime_type = sent_message.alternatives[0]

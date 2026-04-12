@@ -66,6 +66,19 @@
         <td class="p-4" data-label="Дисциплина">
           <div class="font-bold text-slate-800">{{ syllabus.course.code }}</div>
           <div class="text-xs text-slate-500">{{ syllabus.course.title_ru|truncatechars:40 }}</div>
+          {% if syllabus.status == 'approved' %}
+            <div class="mt-2">
+              {% if syllabus.is_shared %}
+                <span class="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700">
+                  Общий доступ включён
+                </span>
+              {% else %}
+                <span class="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-500">
+                  Не опубликован
+                </span>
+              {% endif %}
+            </div>
+          {% endif %}
         </td>
         <td class="p-4 text-slate-600" data-label="Период">
           <div>{{ syllabus.semester }}</div>

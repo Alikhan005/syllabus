@@ -696,3 +696,52 @@ class SyllabusRoleViewTests(TestCase):
         self.assertEqual(response.status_code, 405)
         syllabus.refresh_from_db()
         self.assertFalse(syllabus.is_shared)
+
+    def test_approved_author_sees_share_controls_on_detail_page(self):
+        teacher = self._create_user("teacher_share_detail", "teacher")
+        course = self._create_course(teacher, code="CS420")
+        syllabus = Syllabus.objects.create(
+            course=course,
+            creator=teacher,
+            semester="Fall 2025",
+            academic_year="2025-2026",
+            status=Syllabus.Status.APPROVED,
+            is_shared=False,
+        )
+
+        self.client.force_login(teacher)
+        response = self.client.get(reverse("syllabus_detail", args=[syllabus.pk]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Общий доступ")
+        self.assertContains(response, "Опубликовать в общем банке")
+
+    def test_toggle_share_updates_flag_and_shows_success_message(self):
+        teacher = self._create_user("teacher_share_success", "teacher")
+        course = self._create_course(teacher, code="CS421")
+        syllabus = Syllabus.objects.create(
+            course=course,
+            creator=teacher,
+            semester="Fall 2025",
+            academic_year="2025-2026",
+            status=Syllabus.Status.APPROVED,
+            is_shared=False,
+        )
+
+        self.client.force_login(teacher)
+        response = self.client.post(reverse("syllabus_toggle_share", args=[syllabus.pk]), follow=True)
+
+        self.assertEqual(response.status_code, 200)
+        syllabus.refresh_from_db()
+        self.assertTrue(syllabus.is_shared)
+        self.assertContains(response, "Силлабус опубликован в общем банке.")
+
+    def test_upload_page_mentions_shared_publication_in_next_steps(self):
+        teacher = self._create_user("teacher_share_upload_hint", "teacher")
+        self._create_course(teacher, code="CS422")
+
+        self.client.force_login(teacher)
+        response = self.client.get(reverse("upload_pdf"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "После утверждения силлабус можно опубликовать в разделе «Общие силлабусы».")

@@ -870,4 +870,8 @@ def syllabus_toggle_share(request, pk):
         return redirect("syllabus_detail", pk=pk)
     syllabus.is_shared = not syllabus.is_shared
     syllabus.save(update_fields=["is_shared"])
+    if syllabus.is_shared:
+        messages.success(request, "Силлабус опубликован в общем банке.")
+    else:
+        messages.success(request, "Силлабус убран из общего банка.")
     return redirect("syllabus_detail", pk=pk)

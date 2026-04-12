@@ -37,13 +37,13 @@ def _can_request_ai_check(user, syllabus: Syllabus) -> bool:
 def run_check(request, syllabus_pk):
     syllabus = get_object_or_404(Syllabus, pk=syllabus_pk)
     if not _can_view(request.user, syllabus):
-        raise PermissionDenied("РќРµС‚ РґРѕСЃС‚СѓРїР° Рє СЌС‚РѕРјСѓ СЃРёР»Р»Р°Р±СѓСЃСѓ.")
+        raise PermissionDenied("Нет доступа к этому силлабусу.")
     if not _can_request_ai_check(request.user, syllabus):
-        raise PermissionDenied("РќРµРґРѕСЃС‚Р°С‚РѕС‡РЅРѕ РїСЂР°РІ РґР»СЏ Р·Р°РїСѓСЃРєР° AI-РїСЂРѕРІРµСЂРєРё.")
+        raise PermissionDenied("Недостаточно прав для запуска AI-проверки.")
     if syllabus.status not in AI_CHECK_START_STATUSES:
         messages.error(
             request,
-            "AI-РїСЂРѕРІРµСЂРєСѓ РјРѕР¶РЅРѕ Р·Р°РїСѓСЃРєР°С‚СЊ С‚РѕР»СЊРєРѕ РёР· С‡РµСЂРЅРѕРІРёРєР°, РґРѕСЂР°Р±РѕС‚РєРё РёР»Рё СЃС‚Р°С‚СѓСЃР° РїСЂРѕРІРµСЂРєРё РР.",
+            "AI-проверку можно запускать только из черновика, доработки или статуса проверки ИИ.",
         )
         return redirect("syllabus_detail", pk=syllabus.pk)
 
@@ -53,9 +53,9 @@ def run_check(request, syllabus_pk):
         comment="Запрошена AI-проверка из раздела результатов.",
     )
     if queued_now:
-        messages.success(request, "Р”РѕРєСѓРјРµРЅС‚ РїРѕСЃС‚Р°РІР»РµРЅ РІ РѕС‡РµСЂРµРґСЊ РЅР° AI-РїСЂРѕРІРµСЂРєСѓ.")
+        messages.success(request, "Документ поставлен в очередь на AI-проверку.")
     else:
-        messages.info(request, "AI-РїСЂРѕРІРµСЂРєР° СѓР¶Рµ РІС‹РїРѕР»РЅСЏРµС‚СЃСЏ.")
+        messages.info(request, "AI-проверка уже выполняется.")
     return redirect("syllabus_detail", pk=syllabus.pk)
 
 
@@ -63,7 +63,7 @@ def run_check(request, syllabus_pk):
 def check_detail(request, pk):
     check = get_object_or_404(AiCheckResult, pk=pk)
     if not _can_view(request.user, check.syllabus):
-        raise PermissionDenied("РќРµС‚ РґРѕСЃС‚СѓРїР° Рє СЂРµР·СѓР»СЊС‚Р°С‚Сѓ AI-РїСЂРѕРІРµСЂРєРё.")
+        raise PermissionDenied("Нет доступа к результату AI-проверки.")
     return render(request, "ai_checker/check_detail.html", {"check": check})
 
 
@@ -77,7 +77,7 @@ def assistant_reply(request):
     if syllabus_id:
         syllabus = get_object_or_404(Syllabus, pk=syllabus_id)
         if not _can_view(request.user, syllabus):
-            raise PermissionDenied("РќРµС‚ РґРѕСЃС‚СѓРїР° Рє РІС‹Р±СЂР°РЅРЅРѕРјСѓ СЃРёР»Р»Р°Р±СѓСЃСѓ.")
+            raise PermissionDenied("Нет доступа к выбранному силлабусу.")
 
     if not message:
         return render(
@@ -85,7 +85,7 @@ def assistant_reply(request):
             "ai_checker/assistant_response.html",
             {
                 "question": "",
-                "answer": "Р’РІРµРґРёС‚Рµ РІРѕРїСЂРѕСЃ, С‡С‚РѕР±С‹ РїРѕР»СѓС‡РёС‚СЊ РѕС‚РІРµС‚.",
+                "answer": "Введите вопрос, чтобы получить ответ.",
                 "model_name": "",
             },
         )

@@ -224,7 +224,7 @@ class Command(BaseCommand):
                     if (
                         "syllabi_syllabus" in error_text
                         or "does not exist" in error_text
-                        or "РЅРµ СЃСѓС‰РµСЃС‚РІСѓРµС‚" in error_text
+                        or "не существует" in error_text
                     ):
                         self._report_missing_table()
                         missing_table_reported = True

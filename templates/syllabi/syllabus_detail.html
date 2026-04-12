@@ -41,6 +41,18 @@
                 <i class="fas fa-code-branch"></i>
                 <span>Версия v{{ syllabus.version_number }}</span>
             </div>
+            {% if syllabus.status == 'approved' %}
+            <div class="flex items-center gap-2">
+                <i class="fas fa-share-nodes"></i>
+                <span>
+                    {% if syllabus.is_shared %}
+                        Опубликован в общем банке
+                    {% else %}
+                        Пока доступен только автору и проверяющим
+                    {% endif %}
+                </span>
+            </div>
+            {% endif %}
         </div>
       </div>
 
@@ -229,6 +241,39 @@
             </div>
             {% endif %}
         </div>
+    </div>
+</div>
+{% endif %}
+
+{% if can_share %}
+<div class="mb-8 rounded-xl border border-emerald-200 bg-white p-6 shadow-sm">
+    <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+            <div class="mb-2 inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-700">
+                <i class="fas fa-share-alt"></i>
+                Общий доступ
+            </div>
+            <h3 class="text-lg font-bold text-slate-800">
+                {% if syllabus.is_shared %}
+                    Силлабус уже опубликован для коллег
+                {% else %}
+                    Силлабус пока не опубликован
+                {% endif %}
+            </h3>
+            <p class="mt-1 text-sm text-slate-600">
+                В общий банк попадают только утверждённые силлабусы. Здесь можно вручную включить или отключить публикацию.
+            </p>
+        </div>
+        <form method="post" action="{% url 'syllabus_toggle_share' syllabus.pk %}">
+            {% csrf_token %}
+            <button class="{% if syllabus.is_shared %}border border-slate-300 bg-white text-slate-700 hover:bg-slate-50{% else %}bg-emerald-600 text-white hover:bg-emerald-700{% endif %} rounded-lg px-5 py-3 text-sm font-semibold transition">
+                {% if syllabus.is_shared %}
+                    Убрать из общего банка
+                {% else %}
+                    Опубликовать в общем банке
+                {% endif %}
+            </button>
+        </form>
     </div>
 </div>
 {% endif %}
