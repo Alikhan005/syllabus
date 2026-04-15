@@ -15,5 +15,5 @@
 
 Жоба Render арқылы деплой жасауға дайын:
 - репозиторий түбінде `render.yaml` бар;
-- Render үшін `Dockerfile` және deploy скрипттері дайын;
+- Render үшін native Python build/start скрипттері дайын;
 - GitHub-қа жаңа `push` жасалғаннан кейін Render жобаны қайта деплой ете алады.

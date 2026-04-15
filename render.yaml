@@ -1,13 +1,13 @@
 services:
   - name: almau-syllabus
     type: web
-    runtime: docker
+    runtime: python
     plan: free
     region: frankfurt
-    dockerfilePath: ./Dockerfile
-    dockerContext: .
     autoDeployTrigger: commit
     healthCheckPath: /healthz/
+    buildCommand: bash deploy/render-build.sh
+    startCommand: bash deploy/render-start.sh
     preDeployCommand: bash deploy/render-predeploy.sh
     envVars:
       - key: DATABASE_URL
