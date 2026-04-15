@@ -1,0 +1,53 @@
+services:
+  - name: almau-syllabus
+    type: web
+    runtime: docker
+    plan: free
+    region: frankfurt
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    autoDeployTrigger: commit
+    healthCheckPath: /healthz/
+    preDeployCommand: bash deploy/render-predeploy.sh
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: almau-syllabus-db
+          property: connectionString
+      - key: DJANGO_SECRET_KEY
+        generateValue: true
+      - key: DJANGO_DEBUG
+        value: "False"
+      - key: DJANGO_ALLOWED_HOSTS
+        value: ".onrender.com"
+      - key: DJANGO_CSRF_TRUSTED_ORIGINS
+        value: "https://*.onrender.com"
+      - key: DJANGO_SECURE_PROXY_SSL_HEADER
+        value: "HTTP_X_FORWARDED_PROTO,https"
+      - key: DJANGO_SECURE_SSL_REDIRECT
+        value: "True"
+      - key: DJANGO_SESSION_COOKIE_SECURE
+        value: "True"
+      - key: DJANGO_CSRF_COOKIE_SECURE
+        value: "True"
+      - key: DJANGO_SECURE_HSTS_SECONDS
+        value: "31536000"
+      - key: DJANGO_SECURE_HSTS_INCLUDE_SUBDOMAINS
+        value: "False"
+      - key: DJANGO_SECURE_HSTS_PRELOAD
+        value: "False"
+      - key: DJANGO_X_FRAME_OPTIONS
+        value: "DENY"
+      - key: EMAIL_BACKEND
+        value: "django.core.mail.backends.console.EmailBackend"
+      - key: AI_CHECK_USE_LLM
+        value: "False"
+      - key: AI_CHECK_FALLBACK_TO_RULES_ON_LLM_ERROR
+        value: "True"
+      - key: DIAGNOSTICS_ENV_KEYS
+        value: "DJANGO_SECRET_KEY,DATABASE_URL"
+
+databases:
+  - name: almau-syllabus-db
+    plan: free
+    region: frankfurt

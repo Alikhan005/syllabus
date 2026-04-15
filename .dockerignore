@@ -1,0 +1,17 @@
+.env
+.env.production
+.venv
+.venv_broken
+venv
+venv312
+__pycache__
+*.py[cod]
+*.sqlite3
+*.sqlite3.bak*
+media
+staticfiles
+.git
+.gitignore
+*.log
+*.gguf
+.run_worker.lock
