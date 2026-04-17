@@ -33,7 +33,7 @@
 
 Репозиторий 'Render' үшін сақтық көшірме қолдану файлдарын қамтиды:
 
-- `render.yaml`
+
 - `deploy/render-build.sh`
 - `deploy/render-predeploy.sh`
 - `deploy/render-start.sh`
