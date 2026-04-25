@@ -147,64 +147,6 @@
   </div>
   {% endif %}
 
-  {% comment %}
-  {% if user.is_authenticated and not hide_nav %}
-    <div class="ai-widget" data-ai-widget>
-      <button
-        type="button"
-        class="ai-widget__toggle"
-        data-ai-toggle
-        aria-expanded="false"
-        aria-controls="ai-widget-panel"
-        aria-label="Открыть AI помощника"
-        title="AI помощник"
-      >
-        <img src="{% static 'img/ai.svg' %}" alt="AI помощник" class="ai-widget__icon" width="28" height="28" loading="lazy" decoding="async">
-      </button>
-      <div class="ai-widget__nudge" data-ai-nudge aria-hidden="true" hidden>
-        Я помощник силлабуса — нажми на меня :)
-      </div>
-      <section id="ai-widget-panel" class="ai-widget__panel" data-ai-panel aria-hidden="true" hidden>
-        <div class="ai-widget__header">
-          <div>
-            <div class="ai-widget__title">AI помощник</div>
-            <div class="ai-widget__subtitle">Подскажу по структуре, проверке и переводу силлабуса.</div>
-          </div>
-          <button type="button" class="ai-widget__close" data-ai-close aria-label="Закрыть">&times;</button>
-        </div>
-        <div id="ai-widget-history" class="ai-widget__history">
-          <div class="ai-widget__bubble ai-widget__bubble--ai">
-            <div class="ai-widget__label">AI помощник</div>
-          <div class="ai-widget__msg">Здравствуйте! Помогу с силлабусом: темы, разделы, PDF, общий доступ, перевод и проверка структуры.</div>
-          </div>
-        </div>
-        <form
-          class="ai-widget__form"
-          hx-post="{% url 'ai_assistant' %}"
-          hx-target="#ai-widget-history"
-          hx-swap="beforeend"
-          hx-indicator="#ai-widget-status"
-          hx-on:htmx:afterRequest="this.reset()"
-        >
-          {% csrf_token %}
-          <input type="hidden" name="syllabus_id" value="{{ syllabus.pk|default:'' }}">
-          <textarea
-            name="message"
-            class="ai-widget__input"
-            rows="2"
-            placeholder="Спросите: что нужно исправить в силлабусе?"
-          ></textarea>
-          <div class="ai-widget__actions">
-            <button type="submit" class="ai-widget__send">Отправить</button>
-            <span id="ai-widget-status" class="ai-widget__status" aria-live="polite">Думаю...</span>
-          </div>
-        </form>
-        <div class="ai-widget__hint">Можно спрашивать про общий доступ, PDF, создание/копирование, темы, часы, перевод и проверку структуры.</div>
-      </section>
-    </div>
-  {% endif %}
-  {% endcomment %}
-
   <script>
     (function () {
       const nav = document.querySelector("[data-site-nav]");

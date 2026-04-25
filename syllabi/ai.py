@@ -1,7 +1,7 @@
 import json
 import re
 
-from ai_checker.assistant import load_guidelines, _assistant_mode
+from ai_checker.guidelines import get_llm_mode, load_guidelines
 from ai_checker.llm import generate_text, get_model_name
 
 
@@ -20,7 +20,7 @@ def _parse_json(text: str) -> dict:
 
 
 def _ai_enabled() -> bool:
-    mode = _assistant_mode().lower()
+    mode = get_llm_mode()
     return mode not in {"off", "0", "false", "rules", "fast"}
 
 

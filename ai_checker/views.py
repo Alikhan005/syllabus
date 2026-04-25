@@ -8,7 +8,6 @@ from syllabi.models import Syllabus
 from syllabi.permissions import can_view_syllabus
 from workflow.services import queue_for_ai_check
 
-from .assistant import answer_syllabus_question
 from .models import AiCheckResult
 
 
@@ -65,40 +64,3 @@ def check_detail(request, pk):
     if not _can_view(request.user, check.syllabus):
         raise PermissionDenied("Нет доступа к результату AI-проверки.")
     return render(request, "ai_checker/check_detail.html", {"check": check})
-
-
-@login_required
-@require_POST
-def assistant_reply(request):
-    message = request.POST.get("message", "").strip()
-    syllabus_id = request.POST.get("syllabus_id", "").strip()
-    syllabus = None
-
-    if syllabus_id:
-        syllabus = get_object_or_404(Syllabus, pk=syllabus_id)
-        if not _can_view(request.user, syllabus):
-            raise PermissionDenied("Нет доступа к выбранному силлабусу.")
-
-    if not message:
-        return render(
-            request,
-            "ai_checker/assistant_response.html",
-            {
-                "question": "",
-                "answer": "Введите вопрос, чтобы получить ответ.",
-                "model_name": "",
-            },
-        )
-
-    answer, model_name = answer_syllabus_question(message, syllabus)
-    if model_name == "rules-only":
-        model_name = ""
-    return render(
-        request,
-        "ai_checker/assistant_response.html",
-        {
-            "question": message,
-            "answer": answer,
-            "model_name": model_name,
-        },
-    )
