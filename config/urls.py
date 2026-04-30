@@ -98,6 +98,16 @@ def _is_local_dev_host() -> bool:
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
     urlpatterns += staticfiles_urlpatterns()
+elif getattr(settings, "SERVE_MEDIA", False):
+    media_prefix = settings.MEDIA_URL.lstrip("/")
+    if media_prefix:
+        urlpatterns += [
+            path(
+                f"{media_prefix}<path:path>",
+                media_serve,
+                {"document_root": settings.MEDIA_ROOT},
+            )
+        ]
 elif _is_local_dev_host():
     static_prefix = settings.STATIC_URL.lstrip("/")
     media_prefix = settings.MEDIA_URL.lstrip("/")
@@ -117,4 +127,5 @@ elif _is_local_dev_host():
                 {"insecure": True},
             )
         ]
+
         

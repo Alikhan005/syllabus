@@ -2,5 +2,8 @@
 
 # AI / document extraction needed for PDF/DOCX syllabus checks.
 httpx==0.28.1
-markitdown[pdf]==0.1.4
+# Optional richer PDF/DOCX extraction.
+# Skip on Windows + Python 3.14+ where markitdown 0.1.4 pulls an
+# onnxruntime build that is not currently available for this runtime.
+markitdown[pdf]==0.1.4; not (sys_platform == "win32" and python_version >= "3.14")
 pypdf==5.1.0

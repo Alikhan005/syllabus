@@ -269,6 +269,7 @@ MEDIA_ROOT = Path(
     or (BASE_DIR / "media")
 )
 MEDIA_ROOT.mkdir(parents=True, exist_ok=True)
+SERVE_MEDIA = _env_bool("DJANGO_SERVE_MEDIA", DEBUG)
 
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
