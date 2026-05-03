@@ -48,7 +48,7 @@ def _ensure_env_loaded() -> None:
 
 
 def _remote_config() -> dict | None:
-    """Load remote LLM settings (OpenAI/Mistral/LocalAI compatible API)."""
+    """Load remote LLM settings for OpenAI-compatible chat APIs."""
     _ensure_env_loaded()
     api_key = os.getenv("LLM_API_KEY") or os.getenv("OPENAI_API_KEY")
 
@@ -56,8 +56,11 @@ def _remote_config() -> dict | None:
     if not api_key:
         return None
 
-    api_url = os.getenv("LLM_API_URL", "https://api.openai.com/v1/chat/completions")
-    model = os.getenv("LLM_REMOTE_MODEL", "").strip() or "gpt-4o-mini"
+    api_url = os.getenv(
+        "LLM_API_URL",
+        "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+    )
+    model = os.getenv("LLM_REMOTE_MODEL", "").strip() or "gemini-2.5-flash"
     timeout = float(os.getenv("LLM_REMOTE_TIMEOUT", "30"))
     org = os.getenv("OPENAI_ORG", "").strip()
 
@@ -77,7 +80,7 @@ def _use_remote() -> bool:
     if provider in {"local", "llama", "llama-cpp"}:
         return False
 
-    if provider in {"remote", "api", "openai", "openrouter", "groq", "mistral"}:
+    if provider in {"remote", "api", "gemini", "openai", "openrouter", "groq", "mistral"}:
         return True
 
     # With auto mode try remote only when remote config exists.
