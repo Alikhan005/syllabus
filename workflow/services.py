@@ -7,6 +7,7 @@ from django.core.mail import send_mail
 from django.db import transaction
 
 from core.notifications import create_notifications_for_status_log
+from syllabi.display import course_code_for_user, course_title_for_user
 from syllabi.models import Syllabus
 
 from .models import SyllabusAuditLog, SyllabusStatusLog
@@ -99,31 +100,31 @@ def _notify_on_status_change(syllabus: Syllabus, new_status: str, comment: str =
 
         if new_status == Syllabus.Status.REVIEW_DEAN:
             recipients = _collect_role_emails("dean")
-            subject = f"Требуется согласование декана: {syllabus.course.code}"
+            subject = f"Требуется согласование декана: {course_code_for_user(syllabus)}"
             message = (
                 "Новый силлабус отправлен на ваше согласование.\n"
-                f"Курс: {syllabus.course.display_title}\n"
+                f"Курс: {course_title_for_user(syllabus)}\n"
                 f"Автор: {syllabus.creator.get_full_name() or syllabus.creator.username}"
             )
 
         elif new_status == Syllabus.Status.REVIEW_UMU:
             recipients = _collect_role_emails("umu")
-            subject = f"Требуется финальная проверка УМУ: {syllabus.course.code}"
+            subject = f"Требуется финальная проверка УМУ: {course_code_for_user(syllabus)}"
             message = (
                 "Декан согласовал силлабус. Требуется финальная проверка УМУ.\n"
-                f"Курс: {syllabus.course.display_title}"
+                f"Курс: {course_title_for_user(syllabus)}"
             )
 
         elif new_status == Syllabus.Status.APPROVED:
             if syllabus.creator.email:
                 recipients = [syllabus.creator.email]
-                subject = f"Силлабус утвержден: {syllabus.course.code}"
-                message = f"Ваш силлабус по курсу {syllabus.course.code} официально утвержден."
+                subject = f"Силлабус утвержден: {course_code_for_user(syllabus, syllabus.creator)}"
+                message = f"Ваш силлабус по курсу {course_code_for_user(syllabus, syllabus.creator)} официально утвержден."
 
         elif new_status == Syllabus.Status.CORRECTION:
             if syllabus.creator.email:
                 recipients = [syllabus.creator.email]
-                subject = f"Силлабус возвращен на доработку: {syllabus.course.code}"
+                subject = f"Силлабус возвращен на доработку: {course_code_for_user(syllabus, syllabus.creator)}"
                 message = (
                     "Ваш силлабус возвращен на доработку.\n\n"
                     f"Комментарий:\n{comment}"
@@ -132,7 +133,7 @@ def _notify_on_status_change(syllabus: Syllabus, new_status: str, comment: str =
         elif new_status == Syllabus.Status.REJECTED:
             if syllabus.creator.email:
                 recipients = [syllabus.creator.email]
-                subject = f"Силлабус отклонен: {syllabus.course.code}"
+                subject = f"Силлабус отклонен: {course_code_for_user(syllabus, syllabus.creator)}"
                 message = (
                     "Ваш силлабус отклонен и переведен в архивный статус.\n\n"
                     f"Комментарий:\n{comment or 'Без дополнительного комментария.'}"

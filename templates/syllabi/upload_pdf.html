@@ -27,10 +27,43 @@
           </div>
         </div>
         <div class="editor-grid editor-grid--2">
-          <div class="editor-field editor-field--wide">
+          <div class="editor-field editor-field--wide editor-course-picker" data-course-picker>
             <label for="{{ form.course.id_for_label }}">{{ form.course.label }}</label>
-            {{ form.course }}
+            <div class="editor-course-picker__row">
+              <div class="editor-course-picker__select">
+                {{ form.course }}
+              </div>
+              <button
+                type="button"
+                class="btn-secondary editor-manual-toggle"
+                data-manual-course-toggle
+                aria-expanded="{% if form.manual_course_name.value or form.manual_course_name.errors or form.course.errors %}true{% else %}false{% endif %}"
+                aria-controls="manual-course-panel"
+              >
+                <span data-manual-course-toggle-text>
+                  {% if form.manual_course_name.value or form.manual_course_name.errors or form.course.errors %}
+                    Убрать ручной ввод
+                  {% else %}
+                    Ввести название вручную
+                  {% endif %}
+                </span>
+              </button>
+            </div>
             {% if form.course.errors %}<div class="editor-errors">{{ form.course.errors }}</div>{% endif %}
+            <div
+              id="manual-course-panel"
+              class="editor-manual-panel{% if form.manual_course_name.value or form.manual_course_name.errors or form.course.errors %} is-open{% endif %}"
+              data-manual-course-panel
+              {% if not form.manual_course_name.value and not form.manual_course_name.errors and not form.course.errors %}hidden{% endif %}
+            >
+              <label for="{{ form.manual_course_name.id_for_label }}">{{ form.manual_course_name.label }}</label>
+              {{ form.manual_course_name }}
+              <div class="editor-inline-note">
+                <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
+                <span>{{ form.manual_course_name.help_text }}</span>
+              </div>
+              {% if form.manual_course_name.errors %}<div class="editor-errors">{{ form.manual_course_name.errors }}</div>{% endif %}
+            </div>
           </div>
           <div class="editor-field">
             <label for="{{ form.semester.id_for_label }}">{{ form.semester.label }}</label>
@@ -58,9 +91,40 @@
           </div>
           <div class="editor-chip">PDF / DOC / DOCX</div>
         </div>
-        <div class="editor-field">
+        <div class="editor-field editor-file-attach" data-file-attach>
           <label for="{{ form.pdf_file.id_for_label }}">Файл силлабуса</label>
           {{ form.pdf_file }}
+          <div class="editor-file-attach__drop" data-file-drop-zone>
+            <span class="editor-file-attach__icon" aria-hidden="true">
+              <i class="fa-solid fa-cloud-arrow-up"></i>
+            </span>
+            <span class="editor-file-attach__title">Перетащите файл сюда</span>
+            <span class="editor-file-attach__text">или выберите файл на компьютере</span>
+            <button type="button" class="btn-secondary editor-file-attach__pick" data-file-pick>
+              Выбрать файл
+            </button>
+          </div>
+          <div class="editor-file-list" data-file-list hidden>
+            <div class="editor-file-item">
+              <span class="editor-file-item__icon" aria-hidden="true">
+                <i class="fa-regular fa-file-lines"></i>
+              </span>
+              <div class="editor-file-item__body">
+                <button type="button" class="editor-file-item__name" data-file-open>
+                  <span data-file-name>Файл</span>
+                </button>
+                <span class="editor-file-item__status">Готово</span>
+              </div>
+              <div class="editor-file-item__actions">
+                <button type="button" class="editor-file-item__action" data-file-open-icon aria-label="Открыть файл">
+                  <i class="fa-solid fa-up-right-from-square" aria-hidden="true"></i>
+                </button>
+                <button type="button" class="editor-file-item__action editor-file-item__action--danger" data-file-remove aria-label="Удалить файл">
+                  <i class="fa-regular fa-trash-can" aria-hidden="true"></i>
+                </button>
+              </div>
+            </div>
+          </div>
           <p class="editor-help">Поддерживаются форматы: `.pdf`, `.doc`, `.docx`.</p>
           {% if form.pdf_file.errors %}<div class="editor-errors">{{ form.pdf_file.errors }}</div>{% endif %}
         </div>
@@ -85,4 +149,141 @@
     </aside>
   </form>
 </div>
+<script>
+  (function () {
+    const coursePicker = document.querySelector("[data-course-picker]");
+    if (coursePicker) {
+      const toggle = coursePicker.querySelector("[data-manual-course-toggle]");
+      const toggleText = coursePicker.querySelector("[data-manual-course-toggle-text]");
+      const panel = coursePicker.querySelector("[data-manual-course-panel]");
+      const manualInput = panel ? panel.querySelector("input") : null;
+      const courseSelect = coursePicker.querySelector("select");
+
+      const setManualOpen = (isOpen) => {
+        if (!panel || !toggle) return;
+        panel.hidden = !isOpen;
+        panel.classList.toggle("is-open", isOpen);
+        toggle.setAttribute("aria-expanded", isOpen ? "true" : "false");
+        if (toggleText) {
+          toggleText.textContent = isOpen ? "Убрать ручной ввод" : "Ввести название вручную";
+        }
+        if (!isOpen && manualInput) {
+          manualInput.value = "";
+        }
+        if (isOpen && manualInput) {
+          manualInput.focus();
+        }
+      };
+
+      if (toggle && panel) {
+        toggle.addEventListener("click", () => {
+          setManualOpen(panel.hidden);
+        });
+      }
+
+      if (manualInput && courseSelect) {
+        manualInput.addEventListener("input", () => {
+          if (manualInput.value.trim()) {
+            courseSelect.value = "";
+          }
+        });
+
+        courseSelect.addEventListener("change", () => {
+          if (courseSelect.value && manualInput.value.trim()) {
+            manualInput.value = "";
+          }
+          if (courseSelect.value) {
+            setManualOpen(false);
+          }
+        });
+      }
+    }
+  })();
+
+  (function () {
+    const uploads = document.querySelectorAll("[data-file-attach]");
+    if (!uploads.length) return;
+
+    uploads.forEach((upload) => {
+      const input = upload.querySelector("input[type='file']");
+      const dropZone = upload.querySelector("[data-file-drop-zone]");
+      const pickButton = upload.querySelector("[data-file-pick]");
+      const fileList = upload.querySelector("[data-file-list]");
+      const fileName = upload.querySelector("[data-file-name]");
+      const openButtons = upload.querySelectorAll("[data-file-open], [data-file-open-icon]");
+      const removeButton = upload.querySelector("[data-file-remove]");
+      let fileUrl = "";
+
+      if (!input || !dropZone || !fileList || !fileName || !removeButton) return;
+
+      const revokeFileUrl = () => {
+        if (fileUrl) {
+          URL.revokeObjectURL(fileUrl);
+          fileUrl = "";
+        }
+      };
+
+      const renderFile = (files) => {
+        const file = files && files[0];
+        revokeFileUrl();
+
+        if (!file) {
+          fileName.textContent = "Файл";
+          fileList.hidden = true;
+          dropZone.hidden = false;
+          return;
+        }
+
+        fileName.textContent = file.name;
+        fileUrl = URL.createObjectURL(file);
+        fileList.hidden = false;
+        dropZone.hidden = true;
+      };
+
+      input.addEventListener("change", () => renderFile(input.files));
+
+      if (pickButton) {
+        pickButton.addEventListener("click", () => input.click());
+      }
+
+      ["dragenter", "dragover"].forEach((eventName) => {
+        dropZone.addEventListener(eventName, (event) => {
+          event.preventDefault();
+          upload.classList.add("editor-file-attach--active");
+        });
+      });
+
+      ["dragleave", "drop"].forEach((eventName) => {
+        dropZone.addEventListener(eventName, () => {
+          upload.classList.remove("editor-file-attach--active");
+        });
+      });
+
+      dropZone.addEventListener("drop", (event) => {
+        event.preventDefault();
+        const files = event.dataTransfer && event.dataTransfer.files;
+        if (!files || !files.length) return;
+
+        input.files = files;
+        renderFile(files);
+        input.dispatchEvent(new Event("change", { bubbles: true }));
+      });
+
+      openButtons.forEach((button) => {
+        button.addEventListener("click", () => {
+          if (!fileUrl) return;
+          window.open(fileUrl, "_blank", "noopener");
+        });
+      });
+
+      removeButton.addEventListener("click", () => {
+        input.value = "";
+        renderFile(null);
+        input.dispatchEvent(new Event("change", { bubbles: true }));
+      });
+
+      window.addEventListener("beforeunload", revokeFileUrl);
+    });
+  })();
+</script>
 {% endblock %}

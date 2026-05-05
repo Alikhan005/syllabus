@@ -20,6 +20,7 @@ try:
 except ImportError:
     pypdf = None
 
+from syllabi.display import course_code_for_user, course_title_for_user
 from syllabi.models import Syllabus
 
 from .llm import generate_text, get_model_name
@@ -1002,12 +1003,12 @@ def extract_text_from_file(file_path: str) -> str:
 
 def build_syllabus_text_from_db(syllabus: Syllabus) -> str:
     parts = [
-        f"Syllabus: {syllabus.course.code}",
+        f"Syllabus: {course_code_for_user(syllabus)}",
         f"Semester: {syllabus.semester}",
         f"Academic year: {syllabus.academic_year}",
     ]
 
-    course_title = syllabus.course.display_title if getattr(syllabus, "course", None) else ""
+    course_title = course_title_for_user(syllabus)
     if course_title:
         parts.append(f"Course title: {course_title}")
 

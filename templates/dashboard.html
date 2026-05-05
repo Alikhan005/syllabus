@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load syllabus_display %}
 {% block title %}Панель управления{% endblock %}
 {% block body_class %}dashboard-page{% endblock %}
 {% block content %}
@@ -158,8 +159,8 @@
               {% for syllabus in my_reviews %}
                 <div class="approval-item">
                   <div class="approval-item__content">
-                    <div class="approval-item__title">{{ syllabus.course.code }} {{ syllabus.semester }}</div>
-                    <div class="approval-item__meta">{{ syllabus.course.display_title }}</div>
+                    <div class="approval-item__title">{{ syllabus|course_code_for:user }} {{ syllabus.semester }}</div>
+                    <div class="approval-item__meta">{{ syllabus|course_title_for:user }}</div>
                     {% if syllabus.status == 'correction' and syllabus.correction_source_label %}
                       <div class="approval-item__meta text-red-700">
                         Возврат от {{ syllabus.correction_source_label }}
@@ -186,7 +187,7 @@
               {% for syllabus in pending_dean %}
                 <div class="approval-item">
                   <div class="approval-item__content">
-                    <div class="approval-item__title">{{ syllabus.course.code }} {{ syllabus.semester }}</div>
+                    <div class="approval-item__title">{{ syllabus|course_code_for:user }} {{ syllabus.semester }}</div>
                     <div class="approval-item__meta">
                       Автор: {{ syllabus.creator.get_full_name|default:syllabus.creator.username }}
                     </div>
@@ -222,7 +223,7 @@
               {% for syllabus in pending_umu %}
                 <div class="approval-item">
                   <div class="approval-item__content">
-                    <div class="approval-item__title">{{ syllabus.course.code }} {{ syllabus.semester }}</div>
+                    <div class="approval-item__title">{{ syllabus|course_code_for:user }} {{ syllabus.semester }}</div>
                     <div class="approval-item__meta">
                       Автор: {{ syllabus.creator.get_full_name|default:syllabus.creator.username }}
                     </div>

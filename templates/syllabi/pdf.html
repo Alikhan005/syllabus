@@ -77,9 +77,9 @@
 </head>
 <body>
   <div class="header">
-    <div class="title">Силлабус по дисциплине {{ syllabus.course.display_title }}</div>
+    <div class="title">Силлабус по дисциплине {{ course_title }}</div>
     <div class="meta">
-      Код: {{ syllabus.course.code }} · Семестр: {{ syllabus.semester }} · Учебный год: {{ syllabus.academic_year }}
+      Код: {{ course_code }} · Семестр: {{ syllabus.semester }} · Учебный год: {{ syllabus.academic_year }}
     </div>
     <div class="meta">
       Статус: {{ syllabus.get_status_display }} · Язык: {{ syllabus.get_main_language_display }}

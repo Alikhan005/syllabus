@@ -29,6 +29,10 @@ class Course(models.Model):
     )
 
     is_shared = models.BooleanField(default=False)
+    is_manual = models.BooleanField(
+        default=False,
+        help_text="Личная дисциплина, созданная из ручного ввода при загрузке силлабуса.",
+    )
 
     def __str__(self):
         return f"{self.code}"

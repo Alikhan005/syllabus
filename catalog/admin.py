@@ -11,8 +11,8 @@ class TopicQuestionInline(admin.TabularInline):
 
 @admin.register(Course)
 class CourseAdmin(admin.ModelAdmin):
-    list_display = ("code", "title_ru", "owner", "is_shared")
-    list_filter = ("is_shared",)
+    list_display = ("code", "title_ru", "owner", "is_shared", "is_manual")
+    list_filter = ("is_shared", "is_manual")
     search_fields = ("code", "title_ru", "title_en")
 
 @admin.register(Topic)

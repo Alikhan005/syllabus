@@ -1,5 +1,6 @@
 ﻿{% extends "base.html" %}
-{% block title %}Силлабус {{ syllabus.course.code }}{% endblock %}
+{% load syllabus_display %}
+{% block title %}Силлабус {{ syllabus|course_code_for:user }}{% endblock %}
 {% block body_class %}syllabus-detail-page{% endblock %}
 
 {% block content %}
@@ -9,7 +10,7 @@
       <div class="syllabus-hero__summary">
         <div class="syllabus-hero__heading flex items-center gap-3 mb-2">
             <h1 class="text-3xl font-bold text-slate-800 tracking-tight">
-              {{ syllabus.course.code }}
+              {{ syllabus|course_code_for:user }}
             </h1>
             <span class="syllabus-hero__status inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold shadow-sm
                 {% if syllabus.status == 'approved' %} bg-green-100 text-green-700 border border-green-200
@@ -26,7 +27,7 @@
                 {{ syllabus.get_status_display }}
             </span>
         </div>
-        <p class="text-xl text-slate-600 font-medium">{{ syllabus.course.display_title }}</p>
+        <p class="text-xl text-slate-600 font-medium">{{ syllabus|course_title_for:user }}</p>
 
         <div class="flex flex-wrap items-center gap-6 mt-4 text-sm text-slate-500 syllabus-hero__meta">
             <div class="flex items-center gap-2">

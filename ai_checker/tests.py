@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 from django.contrib.auth import get_user_model
 from django.test import SimpleTestCase, TestCase
 from django.urls import reverse
@@ -183,7 +185,8 @@ class AiCheckPersistenceTests(TestCase):
             course_description="",
         )
 
-        run_ai_check(syllabus)
+        with patch("ai_checker.services.AI_CHECK_USE_LLM", False):
+            run_ai_check(syllabus)
         syllabus.refresh_from_db()
 
         self.assertIn("Summary", syllabus.ai_feedback)

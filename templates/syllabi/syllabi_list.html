@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load syllabus_display %}
 {% block title %}Мои силлабусы{% endblock %}
 {% block body_class %}syllabi-list-page{% endblock %}
 
@@ -64,8 +65,8 @@
     {% for syllabus in syllabi %}
       <tr class="hover:bg-slate-50 transition group">
         <td class="p-4" data-label="Дисциплина">
-          <div class="font-bold text-slate-800">{{ syllabus.course.code }}</div>
-          <div class="text-xs text-slate-500">{{ syllabus.course.title_ru|truncatechars:40 }}</div>
+          <div class="font-bold text-slate-800">{{ syllabus|course_code_for:user }}</div>
+          <div class="text-xs text-slate-500">{{ syllabus|course_title_for:user|truncatechars:40 }}</div>
           {% if syllabus.status == 'approved' %}
             <div class="mt-2">
               {% if syllabus.is_shared %}

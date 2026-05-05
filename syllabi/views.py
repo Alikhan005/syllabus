@@ -21,6 +21,7 @@ from catalog.models import Topic
 from catalog.services import ensure_default_courses
 from workflow.models import SyllabusAuditLog, SyllabusStatusLog
 from workflow.services import change_status, queue_for_ai_check
+from .display import course_code_for_user
 from .forms import SyllabusDetailsForm, SyllabusForm, is_allowed_syllabus_file_name
 from .models import Syllabus, SyllabusRevision, SyllabusTopic
 from .permissions import can_view_syllabus, shared_syllabi_queryset
@@ -285,11 +286,16 @@ def syllabi_list(request):
 
     syllabi = base_qs
     if q:
-        syllabi = syllabi.filter(
+        visible_course_lookup = (
+            Q(course__is_manual=False) | Q(creator=request.user)
+        ) & (
             Q(course__code__icontains=q)
             | Q(course__title_ru__icontains=q)
             | Q(course__title_kz__icontains=q)
             | Q(course__title_en__icontains=q)
+        )
+        syllabi = syllabi.filter(
+            visible_course_lookup
             | Q(semester__icontains=q)
             | Q(academic_year__icontains=q)
             | Q(creator__first_name__icontains=q)
@@ -343,11 +349,16 @@ def shared_syllabi_list(request):
 
     syllabi = base_qs
     if q:
-        syllabi = syllabi.filter(
+        visible_course_lookup = (
+            Q(course__is_manual=False) | Q(creator=request.user)
+        ) & (
             Q(course__code__icontains=q)
             | Q(course__title_ru__icontains=q)
             | Q(course__title_kz__icontains=q)
             | Q(course__title_en__icontains=q)
+        )
+        syllabi = syllabi.filter(
+            visible_course_lookup
             | Q(semester__icontains=q)
             | Q(academic_year__icontains=q)
             | Q(creator__first_name__icontains=q)
@@ -362,7 +373,18 @@ def shared_syllabi_list(request):
         syllabi = syllabi.filter(creator_id=creator)
 
     year_options = base_qs.values_list("academic_year", flat=True).distinct().order_by("-academic_year")
-    course_options = base_qs.values("course_id", "course__code").distinct().order_by("course__code")
+    course_options = []
+    seen_course_ids = set()
+    for item in base_qs.select_related("course", "creator").order_by("course__code", "course_id"):
+        if item.course_id in seen_course_ids:
+            continue
+        seen_course_ids.add(item.course_id)
+        course_options.append(
+            {
+                "course_id": item.course_id,
+                "label": course_code_for_user(item, request.user),
+            }
+        )
     
     creator_ids = base_qs.values_list("creator_id", flat=True).distinct()
     User = get_user_model()
@@ -398,6 +420,7 @@ def syllabus_create(request):
         form = SyllabusForm(request.POST, request.FILES, user=request.user)
         if form.is_valid():
             syllabus = form.save(commit=False)
+            syllabus.course = form.resolve_course(request.user)
             syllabus.creator = request.user
 
             should_queue_for_ai = bool(syllabus.pdf_file)
@@ -449,6 +472,7 @@ def upload_pdf_view(request):
         form = SyllabusForm(request.POST, request.FILES, user=request.user)
         if form.is_valid():
             syllabus = form.save(commit=False)
+            syllabus.course = form.resolve_course(request.user)
             syllabus.creator = request.user
             
             # Проверка наличия файла
@@ -735,7 +759,7 @@ def syllabus_pdf(request, pk):
             filename=Path(syllabus.pdf_file.name).name,
             content_type=mimetypes.guess_type(file_path.name)[0] or "application/octet-stream",
         )
-    return generate_syllabus_pdf(syllabus)
+    return generate_syllabus_pdf(syllabus, viewer=request.user)
 
 
 @login_required

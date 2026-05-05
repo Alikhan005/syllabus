@@ -2,6 +2,7 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 
 from core.models import Notification, NotificationState
+from syllabi.display import course_code_for_user
 from syllabi.models import Syllabus
 
 User = get_user_model()
@@ -23,8 +24,8 @@ def notification_actor_label(status_log) -> str:
     return status_log.changed_by.get_full_name() or status_log.changed_by.username
 
 
-def notification_title(status_log) -> str:
-    course_code = getattr(status_log.syllabus.course, "code", f"ID {status_log.syllabus_id}")
+def notification_title(status_log, recipient=None) -> str:
+    course_code = course_code_for_user(status_log.syllabus, recipient) or f"ID {status_log.syllabus_id}"
 
     if status_log.to_status == Syllabus.Status.REVIEW_DEAN:
         status_text = "Отправлен на согласование декану"
@@ -91,7 +92,7 @@ def create_notifications_for_status_log(status_log) -> int:
             recipient=user,
             syllabus=status_log.syllabus,
             status_log=status_log,
-            title=notification_title(status_log),
+            title=notification_title(status_log, user),
             body=notification_body(status_log),
             actor_label=notification_actor_label(status_log),
             created_at=status_log.changed_at,

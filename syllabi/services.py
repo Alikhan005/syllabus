@@ -4,6 +4,8 @@ from io import BytesIO
 from django.http import HttpResponse
 from django.template.loader import render_to_string
 
+from .display import course_code_for_user, course_title_for_user
+
 
 def _split_lines(value: str) -> list[str]:
     if not value:
@@ -99,7 +101,7 @@ def validate_syllabus_structure(syllabus) -> list[str]:
     return errors
 
 
-def generate_syllabus_pdf(syllabus):
+def generate_syllabus_pdf(syllabus, viewer=None):
     """
     Generate PDF or return informative 501 if WeasyPrint deps are missing.
     We import WeasyPrint lazily to avoid command-time failures when system libs aren't installed.
@@ -131,6 +133,8 @@ def generate_syllabus_pdf(syllabus):
         "syllabi/pdf.html",
         {
             "syllabus": syllabus,
+            "course_code": course_code_for_user(syllabus, viewer),
+            "course_title": course_title_for_user(syllabus, viewer),
             "topics": topics,
             "learning_outcomes_list": learning_outcomes_list,
             "teaching_methods_list": teaching_methods_list,
@@ -144,7 +148,7 @@ def generate_syllabus_pdf(syllabus):
     pdf_io.seek(0)
 
     response = HttpResponse(pdf_io.getvalue(), content_type="application/pdf")
-    safe_code = syllabus.course.code.replace(" ", "_")
+    safe_code = course_code_for_user(syllabus, viewer).replace(" ", "_")
     response["Content-Disposition"] = (
         f'attachment; filename="syllabus-{safe_code}-v{syllabus.version_number}.pdf"'
     )

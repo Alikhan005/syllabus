@@ -69,6 +69,80 @@ class SyllabusRoleViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context["form"].initial.get("course"), course.pk)
 
+    def test_syllabus_form_accepts_manual_course_name(self):
+        teacher = self._create_user("teacher_manual_course_form", "teacher")
+
+        form = SyllabusForm(
+            data={
+                "manual_course_name": "Управление проектами",
+                "semester": "Fall 2025",
+                "academic_year": "2025-2026",
+                "main_language": "ru",
+            },
+            user=teacher,
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
+        course = form.resolve_course(teacher)
+        self.assertEqual(course.owner, teacher)
+        self.assertEqual(course.code, "Управление проектами")
+        self.assertEqual(course.title_ru, "Управление проектами")
+        self.assertTrue(course.is_manual)
+
+    def test_upload_view_creates_syllabus_for_manual_course_name(self):
+        teacher = self._create_user("teacher_manual_course_upload", "teacher")
+        uploaded = SimpleUploadedFile("manual.pdf", b"%PDF-1.4 fake", content_type="application/pdf")
+        self.client.force_login(teacher)
+
+        response = self.client.post(
+            reverse("upload_pdf"),
+            {
+                "manual_course_name": "Бизнес-аналитика",
+                "semester": "Fall 2025",
+                "academic_year": "2025-2026",
+                "main_language": "ru",
+                "pdf_file": uploaded,
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        syllabus = Syllabus.objects.get(creator=teacher, course__title_ru="Бизнес-аналитика")
+        self.assertIn("manual", syllabus.pdf_file.name)
+        self.assertTrue(syllabus.pdf_file.name.endswith(".pdf"))
+        self.assertTrue(syllabus.course.is_manual)
+
+    def test_manual_course_name_is_visible_only_to_author(self):
+        teacher = self._create_user("teacher_private_manual_course", "teacher")
+        dean = self._create_user("dean_private_manual_course", "dean")
+        course = Course.objects.create(
+            owner=teacher,
+            code="Скрытая дисциплина",
+            title_ru="Скрытая дисциплина",
+            available_languages="ru",
+            is_manual=True,
+        )
+        syllabus = Syllabus.objects.create(
+            course=course,
+            creator=teacher,
+            semester="Fall 2025",
+            academic_year="2025-2026",
+            status=Syllabus.Status.REVIEW_DEAN,
+        )
+
+        self.client.force_login(teacher)
+        author_response = self.client.get(reverse("syllabus_detail", args=[syllabus.pk]))
+
+        self.assertEqual(author_response.status_code, 200)
+        self.assertContains(author_response, "Скрытая дисциплина")
+
+        self.client.force_login(dean)
+        reviewer_response = self.client.get(reverse("syllabus_detail", args=[syllabus.pk]))
+
+        self.assertEqual(reviewer_response.status_code, 200)
+        self.assertContains(reviewer_response, "Личная дисциплина")
+        self.assertContains(reviewer_response, "Название указано автором вручную")
+        self.assertNotContains(reviewer_response, "Скрытая дисциплина")
+
     def test_syllabus_form_hides_duplicate_codes_and_keeps_course_with_content(self):
         teacher = self._create_user("teacher_dedupe_form", "teacher")
         Course.objects.create(
@@ -745,3 +819,9 @@ class SyllabusRoleViewTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "После утверждения силлабус можно опубликовать в разделе «Общие силлабусы».")
+        self.assertContains(response, "Это личное название будет видно вам.")
+        self.assertContains(response, "Ввести название вручную")
+        self.assertContains(response, "manual-course-panel")
+        self.assertContains(response, "Перетащите файл сюда")
+        self.assertContains(response, "Открыть файл")
+        self.assertContains(response, "Удалить файл")
