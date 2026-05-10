@@ -39,6 +39,42 @@ class AccountFormsTests(TestCase):
         self.assertEqual(len(matched_users), 1)
         self.assertEqual(matched_users[0].pk, user.pk)
 
+    def test_password_reset_accepts_email_identifier(self):
+        user = User.objects.create_user(
+            username="reset_by_email",
+            password="pass1234",
+            email="reset_by_email@example.com",
+            role="teacher",
+            is_active=True,
+        )
+
+        form = PasswordResetIdentifierForm(data={"email": "RESET_BY_EMAIL@example.com"})
+        self.assertTrue(form.is_valid())
+
+        matched_users = list(form.get_users(form.cleaned_data["email"]))
+        self.assertEqual(len(matched_users), 1)
+        self.assertEqual(matched_users[0].pk, user.pk)
+
+    def test_password_reset_rejects_unknown_identifier(self):
+        form = PasswordResetIdentifierForm(data={"email": "missing@example.com"})
+
+        self.assertFalse(form.is_valid())
+        self.assertIn("email", form.errors)
+
+    def test_password_reset_rejects_user_without_email(self):
+        User.objects.create_user(
+            username="reset_without_email",
+            password="pass1234",
+            email="",
+            role="teacher",
+            is_active=True,
+        )
+
+        form = PasswordResetIdentifierForm(data={"email": "reset_without_email"})
+
+        self.assertFalse(form.is_valid())
+        self.assertIn("email", form.errors)
+
     def test_signup_form_does_not_reference_removed_email_verified(self):
         User.objects.create_user(
             username="existing_user",

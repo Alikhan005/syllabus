@@ -120,6 +120,11 @@ class LoginForm(AuthenticationForm):
 
 
 class PasswordResetIdentifierForm(PasswordResetForm):
+    not_found_error = (
+        "Аккаунт с таким email или логином не найден. "
+        "Проверьте данные или обратитесь к администратору."
+    )
+
     email = forms.CharField(
         label="Email или логин",
         widget=forms.TextInput(
@@ -136,16 +141,21 @@ class PasswordResetIdentifierForm(PasswordResetForm):
             raise ValidationError("Введите email или логин.")
 
         if "@" in identifier:
-            return identifier
+            user = (
+                User.objects.filter(email__iexact=identifier, is_active=True)
+                .exclude(email="")
+                .first()
+            )
+        else:
+            user = (
+                User.objects.filter(username__iexact=identifier, is_active=True)
+                .exclude(email="")
+                .first()
+            )
 
-        user = (
-            User.objects.filter(username__iexact=identifier, is_active=True)
-            .exclude(email="")
-            .first()
-        )
-        if user:
-            return user.email
-        return identifier
+        if not user or not user.has_usable_password():
+            raise ValidationError(self.not_found_error)
+        return user.email
 
 
 class ProfileForm(forms.ModelForm):
