@@ -9,13 +9,13 @@ from datetime import date
 from xml.etree import ElementTree
 
 try:
-    # Better extraction quality for DOCX/PDF when available.
+    # Более качественное извлечение текста из DOCX/PDF, если библиотека установлена.
     from markitdown import MarkItDown
 except ImportError:
     MarkItDown = None
 
 try:
-    # Fallback extractor for PDF.
+    # Резервный извлекатель текста для PDF.
     import pypdf
 except ImportError:
     pypdf = None
@@ -76,7 +76,7 @@ def _env_float_alias(names: tuple[str, ...], default: float, min_value: float = 
     return max(min_value, default)
 
 
-# AI payload tuning: include head/middle/tail instead of only file beginning.
+# Настройка текста для AI: берем начало/середину/конец, а не только начало файла.
 MAX_INPUT_CHARS = _env_int_alias(("AI_CHECK_MAX_INPUT_CHARS", "LLM_CHECK_TEXT_LIMIT"), 5000, min_value=1200)
 HEAD_CHARS = _env_int("AI_CHECK_HEAD_CHARS", 2200, min_value=600)
 MIDDLE_CHARS = _env_int("AI_CHECK_MIDDLE_CHARS", 900, min_value=300)
@@ -411,7 +411,7 @@ def _build_representative_excerpt(full_text: str) -> str:
     if len(excerpt) <= MAX_INPUT_CHARS:
         return excerpt
 
-    # If merged excerpt is still too long, preserve beginning and end.
+    # Если объединенный фрагмент все еще слишком длинный, сохраняем начало и конец.
     head_budget = max(1000, min(HEAD_CHARS, MAX_INPUT_CHARS // 2))
     tail_budget = max(1000, MAX_INPUT_CHARS - head_budget - len(separator))
     return f"{text[:head_budget]}{separator}{text[-tail_budget:]}"
@@ -934,7 +934,7 @@ def _humanize_runtime_error_legacy(exc: Exception) -> str:
 
 
 def extract_text_from_file(file_path: str) -> str:
-    """Extract text from file with a fast path for PDF."""
+    """Извлекает текст из файла с быстрым путем обработки PDF."""
     if not os.path.exists(file_path):
         return ""
 
@@ -981,7 +981,7 @@ def extract_text_from_file(file_path: str) -> str:
             logger.warning("MarkItDown extract error: %s", exc)
             _cache_extraction_feedback(file_path, _feedback_for_markitdown_exception(file_path, exc))
 
-    # If PDF fast mode is disabled, still try pypdf as fallback before giving up.
+    # Если быстрый режим PDF выключен, все равно пробуем pypdf как резервный вариант.
     if is_pdf and pypdf and not pypdf_tried:
         try:
             reader = pypdf.PdfReader(file_path)
@@ -1059,8 +1059,8 @@ def build_syllabus_text_from_db(syllabus: Syllabus) -> str:
 
 def _build_optimized_prompt(syllabus_text: str) -> str:
     """
-    Fast prompt with softer blocking logic.
-    Critical fail only for unreadable document or fully missing core sections.
+    Быстрый prompt с более мягкой логикой блокировки.
+    Критическая ошибка ставится только для нечитаемого документа или полностью отсутствующих ключевых разделов.
     """
     return (
         "<|im_start|>system\n"
@@ -1080,7 +1080,7 @@ def _build_optimized_prompt(syllabus_text: str) -> str:
 
 
 def _parse_json_response(text: str) -> dict:
-    """Extract JSON from model output even when extra formatting exists."""
+    """Извлекает JSON из ответа модели, даже если там есть лишнее форматирование."""
     cleaned = (text or "").strip()
     cleaned = re.sub(r"^```json", "", cleaned)
     cleaned = re.sub(r"^```", "", cleaned)
@@ -1216,10 +1216,10 @@ def _build_not_syllabus_feedback(cues: list[str]) -> str:
 
 def _quick_structure_decision(source_text: str) -> dict | None:
     """
-    Fast deterministic path:
-    - Approve when all key blocks are confidently detected.
-    - Reject when almost all key blocks are missing.
-    - Otherwise defer to LLM.
+    Быстрый детерминированный путь:
+    - одобряем, если все ключевые блоки уверенно найдены;
+    - отклоняем, если почти все ключевые блоки отсутствуют;
+    - в остальных случаях передаем решение LLM.
     """
     if not FAST_RULES_ENABLED:
         return None

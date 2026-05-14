@@ -91,7 +91,7 @@ def _parse_positive_int(value):
 
 
 def _parse_legacy_reviewer_feedback(feedback: str) -> tuple[str, str]:
-    """Parse old feedback format like [UMU returned for correction] <comment>."""
+    """Разбирает старый формат отзыва вроде [UMU returned for correction] <comment>."""
     raw = (feedback or "").strip()
     if not raw:
         return "", ""
@@ -118,10 +118,10 @@ def _parse_legacy_reviewer_feedback(feedback: str) -> tuple[str, str]:
 
 def _resolve_correction_context(syllabus: Syllabus) -> dict:
     """
-    Build user-facing correction context:
-    - source label (ИИ / Деканат / УМУ)
-    - plain comment for human reviewers
-    - stage marker for progress visualization
+    Собирает понятный пользователю контекст доработки:
+    - источник замечания (ИИ / Деканат / УМУ);
+    - обычный текст комментария от проверяющих;
+    - отметку этапа для визуализации прогресса.
     """
     context = {
         "source_label": "",
@@ -752,7 +752,7 @@ def syllabus_pdf(request, pk):
         if not file_path.exists():
             raise Http404("Файл силлабуса не найден.")
 
-        # Stream uploaded files through Django so permissions stay enforced in production.
+        # Отдаем загруженные файлы через Django, чтобы права доступа соблюдались и в боевой среде.
         return FileResponse(
             file_path.open("rb"),
             as_attachment=request.GET.get("download") in {"1", "true", "yes"},

@@ -82,8 +82,8 @@ class User(AbstractUser):
     @property
     def can_manage_announcements(self) -> bool:
         """
-        Determine who is allowed to publish announcements.
-        Dean, UMI and admin roles are allowed.
+        Определяет, кто может публиковать объявления.
+        Разрешены роли декана, УМУ и администратора.
         """
         if self.is_admin_like:
             return True

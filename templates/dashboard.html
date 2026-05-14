@@ -9,7 +9,7 @@
   <h1 class="text-3xl font-bold dashboard-hero__title">Панель управления — {{ user.get_role_display }}</h1>
   <p class="text-gray-600 mt-2 dashboard-hero__subtitle">
     {% if user.role == "teacher" %}
-      Управляйте курсами, темами и силлабусами в едином пространстве AlmaU.
+      Управляйте конструктором дисциплин, темами и силлабусами в едином пространстве AlmaU.
     {% elif user.role == "dean" %}
       Просматривайте силлабусы на согласовании и принимайте решения как декан.
     {% elif user.role == "umu" %}
@@ -20,10 +20,10 @@
   </p>
   <div class="dashboard-hero__chips">
     {% if user.can_view_courses %}
-      <span class="dashboard-chip">Курсы: {{ my_courses_count|default:"0" }}</span>
+      <span class="dashboard-chip">Конструктор: {{ my_courses_count|default:"0" }}</span>
     {% endif %}
     {% if user.can_view_shared_courses %}
-      <span class="dashboard-chip">Общие курсы: {{ shared_courses_count|default:"0" }}</span>
+      <span class="dashboard-chip">Общие шаблоны: {{ shared_courses_count|default:"0" }}</span>
     {% endif %}
     <span class="dashboard-chip">Силлабусы: {{ syllabi_count|default:"0" }}</span>
     {% if user.can_view_shared_courses %}
@@ -37,11 +37,11 @@
     {% if user.can_view_courses %}
     <div class="card p-5 flex flex-col justify-between">
       <div>
-        <h2 class="text-xl font-semibold mb-2">Мои курсы</h2>
+        <h2 class="text-xl font-semibold mb-2">Конструктор</h2>
         <p class="text-gray-600 text-sm mb-3">
-          Создавайте и редактируйте курсы, ведите банк тем и материалов.
+          Создавайте и редактируйте дисциплины, ведите банк тем и материалов.
         </p>
-        <span class="text-sm text-gray-500">{{ my_courses_count }} курс(ов)</span>
+        <span class="text-sm text-gray-500">{{ my_courses_count }} дисциплин(ы)</span>
       </div>
       <div class="mt-4 dashboard-card__action">
         <a href="{% url 'courses_list' %}" class="btn-primary inline-block dashboard-card__button">Открыть</a>
@@ -52,11 +52,11 @@
     {% if user.can_view_shared_courses %}
     <div class="card p-5 flex flex-col justify-between">
       <div>
-        <h2 class="text-xl font-semibold mb-2">Общие курсы</h2>
+        <h2 class="text-xl font-semibold mb-2">Общие шаблоны</h2>
         <p class="text-gray-600 text-sm mb-3">
-          Используйте общие курсы коллег как основу и адаптируйте под себя.
+          Используйте общие шаблоны коллег как основу и адаптируйте под себя.
         </p>
-        <span class="text-sm text-gray-500">{{ shared_courses_count }} курс(ов)</span>
+        <span class="text-sm text-gray-500">{{ shared_courses_count }} шаблон(ов)</span>
       </div>
       <div class="mt-4 dashboard-card__action">
         <a href="{% url 'shared_courses_list' %}" class="btn-primary inline-block dashboard-card__button">Открыть</a>
@@ -94,17 +94,17 @@
   <div class="card p-5 dashboard-onboarding">
     <h2 class="text-xl font-semibold mb-3">Первые шаги</h2>
     <ol class="list-decimal ml-6 text-slate-600 space-y-2">
-      <li>Сначала создайте курс и заполните банк тем.</li>
+      <li>Сначала создайте дисциплину в конструкторе и заполните банк тем.</li>
       <li>Потом загрузите готовый PDF/Word-файл силлабуса для проверки и дальнейшего согласования.</li>
       <li>После проверки ИИ исправьте замечания и отправьте документ на согласование.</li>
     </ol>
     <p class="text-sm text-slate-500 mt-2">
-      Важно: кнопка «Создать курс» создает дисциплину, а не сам силлабус. Для быстрого старта используйте загрузку готового файла.
+      Важно: кнопка «Создать дисциплину» открывает конструктор, а не создает сам силлабус. Для быстрого старта используйте загрузку готового файла.
     </p>
     {% if user.can_view_courses %}
       <div class="flex flex-wrap gap-2 mt-4 dashboard-onboarding__actions">
         <a href="{% url 'upload_pdf' %}" class="btn-secondary dashboard-onboarding__button">Загрузить готовый файл</a>
-        <a href="{% url 'course_create' %}" class="btn-primary dashboard-onboarding__button">Создать курс</a>
+        <a href="{% url 'course_create' %}" class="btn-primary dashboard-onboarding__button">Создать дисциплину</a>
       </div>
     {% endif %}
   </div>
@@ -114,7 +114,7 @@
       <div>
         <h2 class="text-xl font-semibold mb-2">Все силлабусы</h2>
         <p class="text-gray-600 text-sm mb-3">
-          Просматривайте силлабусы по всем курсам и управляйте статусами.
+          Просматривайте силлабусы по всем дисциплинам и управляйте статусами.
         </p>
       </div>
       <div class="mt-4 dashboard-card__action">
@@ -125,7 +125,7 @@
     {% if user.can_view_shared_courses %}
       <div class="card p-5 flex flex-col justify-between">
         <div>
-          <h2 class="text-xl font-semibold mb-2">Общие курсы</h2>
+          <h2 class="text-xl font-semibold mb-2">Общие шаблоны</h2>
           <p class="text-gray-600 text-sm mb-3">
             Смотрите базы тем и материалов для согласования.
           </p>

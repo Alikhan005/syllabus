@@ -8,7 +8,7 @@ _ENV_LOADED = False
 
 try:
     from dotenv import load_dotenv
-except Exception:  # pragma: no cover - optional dependency
+except Exception:  # pragma: no cover - необязательная зависимость
     load_dotenv = None
 
 

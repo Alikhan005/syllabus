@@ -28,7 +28,7 @@ class CourseForm(forms.ModelForm):
     languages = forms.MultipleChoiceField(
         choices=Course.LANG_CHOICES,
         widget=forms.CheckboxSelectMultiple,
-        label="Языки курса",
+        label="Языки дисциплины",
     )
 
     class Meta:
@@ -51,7 +51,7 @@ class CourseForm(forms.ModelForm):
             "description_ru": "Описание на русском языке",
             "description_kz": "Описание на казахском языке",
             "description_en": "Описание на английском языке",
-            "is_shared": "Сделать курс доступным для коллег",
+            "is_shared": "Сделать дисциплину доступной для коллег",
         }
         widgets = {
             "description_ru": forms.Textarea(attrs={"rows": 4}),
@@ -67,10 +67,10 @@ class CourseForm(forms.ModelForm):
 
         placeholders = {
             "code": "Например: CSCI 2201",
-            "title_ru": "Введите название курса на русском",
-            "title_kz": "Введите название курса на казахском",
-            "title_en": "Введите название курса на английском",
-            "description_ru": "Кратко опишите содержание курса",
+            "title_ru": "Введите название дисциплины на русском",
+            "title_kz": "Введите название дисциплины на казахском",
+            "title_en": "Введите название дисциплины на английском",
+            "description_ru": "Кратко опишите содержание дисциплины",
             "description_kz": "Краткое описание на казахском",
             "description_en": "Short course description in English",
         }
@@ -78,8 +78,8 @@ class CourseForm(forms.ModelForm):
         for name, field in self.fields.items():
             _decorate_field(field, placeholder=placeholders.get(name, ""), rows=4 if "description_" in name else None)
 
-        self.fields["languages"].help_text = "Отметьте языки, на которых будет доступен курс."
-        self.fields["is_shared"].help_text = "Если включить, другие преподаватели смогут копировать этот курс."
+        self.fields["languages"].help_text = "Отметьте языки, на которых будет доступна дисциплина."
+        self.fields["is_shared"].help_text = "Если включить, другие преподаватели смогут копировать эту дисциплину."
 
     def clean_code(self):
         code = (self.cleaned_data.get("code") or "").strip()
@@ -93,7 +93,7 @@ class CourseForm(forms.ModelForm):
 
         if duplicate_qs.exists():
             raise forms.ValidationError(
-                "Курс с таким кодом уже существует. Откройте существующий курс или укажите другой код."
+                "Дисциплина с таким кодом уже существует. Откройте существующую дисциплину или укажите другой код."
             )
 
         return code
@@ -133,7 +133,7 @@ class TopicForm(forms.ModelForm):
             "description_en": "Описание на английском языке",
             "default_hours": "Количество часов",
             "week_type": "Тип занятия",
-            "is_active": "Показывать тему в курсе",
+            "is_active": "Показывать тему в дисциплине",
         }
         widgets = {
             "description_ru": forms.Textarea(attrs={"rows": 3}),

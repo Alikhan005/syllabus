@@ -1,9 +1,9 @@
 {% extends "base.html" %}
-{% block title %}Курс {{ course.code }}{% endblock %}
+{% block title %}Конструктор {{ course.code }}{% endblock %}
 {% block content %}
 <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between mb-4">
   <div>
-    <h1 class="text-2xl font-semibold">Курс {{ course.code }}: {{ course.display_title }}</h1>
+    <h1 class="text-2xl font-semibold">Конструктор {{ course.code }}: {{ course.display_title }}</h1>
     <p class="text-gray-600">Языки: {{ course.available_languages_display }}</p>
     <p class="text-gray-600">Доступ: {{ course.is_shared|yesno:"Общий,Личный" }}</p>
     {% if course.description_ru or course.description_en or course.description_kz %}
@@ -13,7 +13,7 @@
     {% endif %}
   </div>
   {% if can_manage_course %}
-    <a href="{% url 'course_edit' course.pk %}" class="btn-primary w-full sm:w-auto justify-center">Редактировать курс</a>
+    <a href="{% url 'course_edit' course.pk %}" class="btn-primary w-full sm:w-auto justify-center">Редактировать дисциплину</a>
   {% elif can_fork_course %}
     <form method="post" action="{% url 'course_fork' course.pk %}" class="inline">
       {% csrf_token %}
@@ -25,11 +25,11 @@
 <div class="stepper mb-4">
   <div class="stepper__item is-done">
     <span class="stepper__badge">1</span>
-    <span>Курс создан</span>
+    <span>Дисциплина создана</span>
   </div>
   <div class="stepper__item {% if topics %}is-done{% else %}is-active{% endif %}">
     <span class="stepper__badge">2</span>
-    <span>Темы курса</span>
+    <span>Темы дисциплины</span>
   </div>
   <div class="stepper__item {% if topics %}is-active{% endif %}">
     <span class="stepper__badge">3</span>
@@ -45,24 +45,24 @@
         <div class="callout__title">Темы уже добавлены — можно переходить к силлабусу</div>
         <div class="callout__text">
           Следующий шаг: загрузите готовый PDF/Word-файл силлабуса.
-          Курс уже будет выбран автоматически.
+          Дисциплина уже будет выбрана автоматически.
         </div>
       {% else %}
-        <div class="callout__title">Курс уже создан. Следующий шаг — добавить темы</div>
+        <div class="callout__title">Дисциплина уже создана. Следующий шаг — добавить темы</div>
         <div class="callout__text">
-          Пустой экран на этом этапе — это нормально. Сначала заполните хотя бы одну тему курса,
+          Пустой экран на этом этапе — это нормально. Сначала заполните хотя бы одну тему дисциплины,
           и только потом переходите к загрузке силлабуса.
         </div>
       {% endif %}
     {% else %}
-      <div class="callout__title">Это общий курс в режиме просмотра</div>
+      <div class="callout__title">Это общий шаблон в режиме просмотра</div>
       {% if topics %}
         <div class="callout__text">
-          Темы курса доступны для просмотра. Редактировать курс, добавлять темы и загружать силлабус может только автор.
+          Темы дисциплины доступны для просмотра. Редактировать шаблон, добавлять темы и загружать силлабус может только автор.
         </div>
       {% else %}
         <div class="callout__text">
-          Автор пока не добавил темы. Вы можете просматривать курс, но изменять его содержимое может только автор.
+          Автор пока не добавил темы. Вы можете просматривать шаблон, но изменять его содержимое может только автор.
         </div>
       {% endif %}
     {% endif %}
@@ -73,7 +73,7 @@
   <div class="action-bar mb-4">
     <div class="action-bar__content">
       <div class="action-bar__title">Что можно сделать дальше</div>
-      <div class="action-bar__hint">Откроется страница загрузки с уже выбранным этим курсом.</div>
+      <div class="action-bar__hint">Откроется страница загрузки с уже выбранной этой дисциплиной.</div>
     </div>
     <div class="page-actions">
       <a href="{% url 'upload_pdf' %}?course={{ course.pk }}" class="btn-primary">Загрузить PDF/Word</a>
@@ -82,8 +82,8 @@
 {% elif can_fork_course %}
   <div class="action-bar mb-4">
     <div class="action-bar__content">
-      <div class="action-bar__title">Хотите работать с этим курсом у себя?</div>
-      <div class="action-bar__hint">Система создаст копию курса в ваших курсах. Её уже можно будет редактировать.</div>
+      <div class="action-bar__title">Хотите работать с этим шаблоном у себя?</div>
+      <div class="action-bar__hint">Система создаст копию дисциплины в вашем конструкторе. Её уже можно будет редактировать.</div>
     </div>
     <div class="page-actions">
       <form method="post" action="{% url 'course_fork' course.pk %}" class="inline">
@@ -95,7 +95,7 @@
 {% endif %}
 
 <div class="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center mb-2">
-  <h2 class="text-xl font-semibold">Темы курса</h2>
+  <h2 class="text-xl font-semibold">Темы дисциплины</h2>
   {% if can_manage_course %}
     <a href="{% url 'topic_create' course.pk %}" class="btn-secondary w-full sm:w-auto justify-center">
       {% if topics %}Добавить тему{% else %}Добавить первую тему{% endif %}
@@ -180,14 +180,14 @@
   <div class="empty-state">
     {% if can_manage_course %}
       <div class="empty-state__eyebrow">Следующий шаг</div>
-      <div class="empty-state__title">Добавьте первую тему курса</div>
+      <div class="empty-state__title">Добавьте первую тему дисциплины</div>
       <div class="empty-state__text">
-        Курс уже создан. Теперь нужно заполнить темы, из которых потом будет собираться силлабус по неделям.
+        Дисциплина уже создана. Теперь нужно заполнить темы, из которых потом будет собираться силлабус по неделям.
       </div>
       <div class="empty-state__steps">
         <div class="empty-state__step"><strong>1.</strong> Нажмите «Добавить первую тему».</div>
         <div class="empty-state__step"><strong>2.</strong> Укажите название темы, тип занятия и количество часов.</div>
-        <div class="empty-state__step"><strong>3.</strong> Сохраните тему и при необходимости добавьте ещё темы курса.</div>
+        <div class="empty-state__step"><strong>3.</strong> Сохраните тему и при необходимости добавьте ещё темы дисциплины.</div>
         <div class="empty-state__step"><strong>4.</strong> После этого переходите к загрузке PDF/Word-файла силлабуса.</div>
       </div>
       <div class="page-actions mt-4">
@@ -195,9 +195,9 @@
       </div>
     {% else %}
       <div class="empty-state__eyebrow">Режим просмотра</div>
-      <div class="empty-state__title">В этом общем курсе пока нет тем</div>
+      <div class="empty-state__title">В этом общем шаблоне пока нет тем</div>
       <div class="empty-state__text">
-        Вы открыли общий курс другого автора. Добавлять темы и менять содержимое может только владелец курса.
+        Вы открыли общий шаблон другого автора. Добавлять темы и менять содержимое может только владелец шаблона.
       </div>
       {% if can_fork_course %}
         <div class="page-actions mt-4">

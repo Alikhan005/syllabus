@@ -3,12 +3,12 @@ import threading
 import logging
 from pathlib import Path
 
-# Configure module logger.
+# Настраиваем логгер этого модуля.
 logger = logging.getLogger(__name__)
 
 try:
     import httpx
-except Exception as exc:  # pragma: no cover - optional dependency
+except Exception as exc:  # pragma: no cover - необязательная зависимость
     httpx = None
     _HTTPX_IMPORT_ERROR = exc
 else:
@@ -16,12 +16,12 @@ else:
 
 try:
     from dotenv import load_dotenv
-except Exception:  # pragma: no cover - optional dependency
+except Exception:  # pragma: no cover - необязательная зависимость
     load_dotenv = None
 
 try:
     from llama_cpp import Llama
-except Exception as exc:  # pragma: no cover - import-time error surfaced on use
+except Exception as exc:  # pragma: no cover - ошибка импорта будет показана при использовании
     Llama = None
     _LLAMA_IMPORT_ERROR = exc
 else:
@@ -40,7 +40,7 @@ def _ensure_env_loaded() -> None:
     _ENV_LOADED = True
     if load_dotenv is None:
         return
-    # Try loading .env from the project root (2 levels above).
+    # Пробуем загрузить .env из корня проекта (на 2 уровня выше).
     root = Path(__file__).resolve().parents[1]
     env_path = root / ".env"
     if env_path.exists():
@@ -48,11 +48,11 @@ def _ensure_env_loaded() -> None:
 
 
 def _remote_config() -> dict | None:
-    """Load remote LLM settings (OpenAI/Mistral/LocalAI compatible API)."""
+    """Загружает настройки удаленной LLM через OpenAI/Mistral/LocalAI-совместимый API."""
     _ensure_env_loaded()
     api_key = os.getenv("LLM_API_KEY") or os.getenv("OPENAI_API_KEY")
 
-    # If key is missing, remote mode is not configured.
+    # Если ключа нет, удаленный режим не настроен.
     if not api_key:
         return None
 
@@ -71,7 +71,7 @@ def _remote_config() -> dict | None:
 
 
 def _use_remote() -> bool:
-    """Whether remote API should be used instead of local model."""
+    """Определяет, нужно ли использовать удаленный API вместо локальной модели."""
     provider = os.getenv("LLM_PROVIDER", "auto").strip().lower()
 
     if provider in {"local", "llama", "llama-cpp"}:
@@ -80,12 +80,12 @@ def _use_remote() -> bool:
     if provider in {"remote", "api", "openai", "openrouter", "groq", "mistral"}:
         return True
 
-    # With auto mode try remote only when remote config exists.
+    # В режиме auto используем удаленный API только при наличии remote-настроек.
     return _remote_config() is not None
 
 
 def _split_prompt(prompt: str) -> tuple[str, str]:
-    """Split prompt to system/user sections for API payload."""
+    """Разделяет prompt на system/user части для API-запроса."""
     if "<|im_start|>system" not in prompt:
         return "", prompt
     system = ""
@@ -150,7 +150,7 @@ def _generate_remote_text(
         raise RuntimeError("Remote LLM returned no choices.")
 
     choice = choices[0]
-    # Support both chat and completion-style response formats.
+    # Поддерживаем и chat-формат, и completion-style формат ответа.
     if isinstance(choice, dict):
         message = choice.get("message")
         if isinstance(message, dict) and message.get("content"):
@@ -163,9 +163,10 @@ def _generate_remote_text(
 
 def _resolve_model_path() -> str:
     """
-    Resolve local model path (used only for explicit local provider runs).
-    Supported source:
-    1. LLM_MODEL_PATH env variable.
+    Определяет путь к локальной модели.
+    Используется только при явном запуске локального провайдера.
+    Поддерживаемый источник:
+    1. Переменная окружения LLM_MODEL_PATH.
     """
     _ensure_env_loaded()
     env_path = os.getenv("LLM_MODEL_PATH")
@@ -192,8 +193,8 @@ def get_model_name() -> str:
 
 def warmup_llm() -> str:
     """
-    Best-effort warmup to reduce first-request latency.
-    Returns selected model/provider name.
+    Прогревает LLM по возможности, чтобы уменьшить задержку первого запроса.
+    Возвращает имя выбранной модели или провайдера.
     """
     if _use_remote():
         if _remote_config() is None:
@@ -219,17 +220,17 @@ def get_llm() -> "Llama":
             if _LLM is None:
                 model_path = _resolve_model_path()
 
-                # If model path is invalid, fail with a clear error.
+                # Если путь к модели неверный, возвращаем понятную ошибку.
                 if not model_path or not Path(model_path).exists():
                     raise RuntimeError(
                         f"LLM model not found at '{model_path}'. "
                         "Please set LLM_MODEL_PATH in .env to your .gguf file location."
                     )
 
-                # Load runtime parameters from .env or defaults.
+                # Загружаем runtime-параметры из .env или берем значения по умолчанию.
                 n_ctx = int(os.getenv("LLM_CTX", "4096"))
 
-                # Auto-thread heuristic keeps 2 cores for the system.
+                # Автовыбор потоков оставляет 2 ядра для системы.
                 default_threads = max(1, (os.cpu_count() or 4) - 2)
                 n_threads = int(os.getenv("LLM_THREADS", str(default_threads)))
 
@@ -262,20 +263,20 @@ def generate_text(
     top_p: float = 0.9,
 ) -> str:
     """
-    High-level text generation entry point.
-    Chooses remote API first, then local model.
+    Главная точка входа для генерации текста.
+    Сначала выбирает удаленный API, затем локальную модель.
     """
-    # 1. Try remote API first when enabled.
+    # 1. Сначала пробуем удаленный API, если он включен.
     if _use_remote():
         try:
             return _generate_remote_text(prompt, max_tokens, temperature, top_p)
         except Exception as e:
-            # If remote fails, rethrow. No local fallback is executed unless
-            # provider is configured to allow it.
+            # Если удаленный API упал, пробрасываем ошибку дальше.
+            # Локальный fallback не запускается без явной настройки провайдера.
             logger.error(f"Remote generation failed: {e}")
             raise e
 
-    # 2. Fallback to local model when remote is disabled.
+    # 2. Переходим к локальной модели, если удаленный режим выключен.
     llm = get_llm()
     with _RUN_LOCK:
         output = llm(

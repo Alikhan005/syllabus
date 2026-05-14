@@ -55,7 +55,7 @@ class SecureLogoutView(LogoutView):
 class SignupView(CreateView):
     """
     Быстрая регистрация.
-    Пользователь создается активным и сразу авторизуется (Auto-Login).
+    Пользователь создается активным и сразу авторизуется (автоматический вход).
     Никаких подтверждений почты.
     """
     
@@ -83,7 +83,7 @@ class SignupView(CreateView):
             
             logger.info(f"Пользователь создан: {user.username}")
             
-            # 2. АВТОМАТИЧЕСКИЙ ВХОД (Auto-Login)
+            # 2. АВТОМАТИЧЕСКИЙ ВХОД
             login(self.request, user, backend='django.contrib.auth.backends.ModelBackend')
 
             messages.success(

@@ -43,10 +43,10 @@
           <div id="site-nav-links" class="hidden sm:flex items-center space-x-4 ml-6 site-nav__links">
             <a href="{% url 'dashboard' %}" class="nav-link">Главная</a>
             {% if user.can_view_courses %}
-              <a href="{% url 'courses_list' %}" class="nav-link">Курсы</a>
+              <a href="{% url 'courses_list' %}" class="nav-link">Конструктор</a>
             {% endif %}
             {% if user.can_view_shared_courses %}
-              <a href="{% url 'shared_courses_list' %}" class="nav-link">Общие курсы</a>
+              <a href="{% url 'shared_courses_list' %}" class="nav-link">Общие шаблоны</a>
             {% endif %}
             <a href="{% url 'syllabi_list' %}" class="nav-link">Силлабусы</a>
             {% if user.can_view_shared_courses %}
@@ -261,7 +261,7 @@
           try {
             candidate.removeItem(LEGACY_STORAGE_KEY);
           } catch (_) {
-            // ignore storage access failures
+            // Игнорируем ошибки доступа к storage.
           }
         });
 
@@ -356,7 +356,7 @@
           const unreadCount = Number(payload.unread_count || 0);
           updateBadge(unreadCount);
         } catch (_) {
-          // no-op: keep current value when request fails
+          // Ничего не меняем: при ошибке запроса оставляем текущее значение.
         } finally {
           delete alerts.dataset.marking;
         }

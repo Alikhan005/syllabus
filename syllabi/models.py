@@ -22,7 +22,7 @@ class Syllabus(models.Model):
         APPROVED = "approved", "Утвержден"
         REJECTED = "rejected", "Отклонено (Архив)"
 
-    # Compatibility aliases for older status names still used in tests/templates/scripts.
+    # Алиасы совместимости для старых названий статусов, которые еще используются в тестах/шаблонах/скриптах.
     Status.SUBMITTED_DEAN = Status.REVIEW_DEAN
     Status.APPROVED_DEAN = Status.REVIEW_UMU
     Status.SUBMITTED_UMU = Status.REVIEW_UMU

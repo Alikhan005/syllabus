@@ -2555,7 +2555,7 @@ details[open] summary::after {
         padding: 0 !important;
     }
 
-    /* Карточка без теней и границ (clean look) */
+    /* Карточка без теней и границ (чистый вид) */
     .auth-card {
         box-shadow: none !important;
         border: none !important;
@@ -2678,7 +2678,7 @@ details[open] summary::after {
     }
 }
 
-/* === Visual Refresh === */
+/* === Визуальное обновление === */
 :root {
   --surface-card: rgba(255, 255, 255, 0.94);
   --surface-card-strong: rgba(255, 255, 255, 0.98);
@@ -2835,7 +2835,7 @@ textarea:focus {
   }
 }
 
-/* === 2026 UI Polish === */
+/* === UI-полировка 2026 === */
 
 :root {
   --brand-sea: #0c6b63;
@@ -3306,7 +3306,7 @@ textarea:focus {
   }
 }
 
-/* === Editor Pages === */
+/* === Страницы редактора === */
 .editor-shell {
   max-width: 72rem;
   margin: 0 auto;
@@ -3910,7 +3910,7 @@ textarea:focus {
   }
 }
 
-/* === Mobile adaptive refinements === */
+/* === Доработки мобильной адаптации === */
 .site-nav__user-name {
   max-width: 16rem;
   overflow-wrap: anywhere;
@@ -4397,7 +4397,7 @@ textarea:focus {
   }
 }
 
-/* === Visual polish 2026.4 === */
+/* === Визуальная полировка 2026.4 === */
 :root {
   --lux-border: rgba(15, 118, 110, 0.14);
   --lux-shadow: 0 22px 52px rgba(15, 23, 42, 0.12);

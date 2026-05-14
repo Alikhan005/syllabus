@@ -1,14 +1,14 @@
 {% extends "base.html" %}
-{% block title %}{% if form.instance.pk %}Редактирование курса{% else %}Новый курс{% endif %}{% endblock %}
+{% block title %}{% if form.instance.pk %}Редактирование дисциплины{% else %}Новая дисциплина{% endif %}{% endblock %}
 {% block content %}
 <div class="editor-shell">
   <div class="editor-hero">
-    <div class="editor-hero__kicker">{% if form.instance.pk %}Редактирование курса{% else %}Новый курс{% endif %}</div>
+    <div class="editor-hero__kicker">{% if form.instance.pk %}Редактирование дисциплины{% else %}Новая дисциплина{% endif %}</div>
     <h1 class="editor-hero__title">
       {% if form.instance.pk %}
-        Обновите карточку курса
+        Обновите карточку дисциплины
       {% else %}
-        Создайте курс для каталога
+        Создайте дисциплину для конструктора
       {% endif %}
     </h1>
     <p class="editor-hero__text">
@@ -29,7 +29,7 @@
         <div class="editor-card__header">
           <div>
             <div class="editor-card__eyebrow">Основное</div>
-            <h2 class="editor-card__title">Паспорт курса</h2>
+            <h2 class="editor-card__title">Паспорт дисциплины</h2>
           </div>
           <div class="editor-chip">Обязательно</div>
         </div>
@@ -59,7 +59,7 @@
         <div class="editor-card__header">
           <div>
             <div class="editor-card__eyebrow">Названия</div>
-            <h2 class="editor-card__title">Как курс будет отображаться</h2>
+            <h2 class="editor-card__title">Как дисциплина будет отображаться</h2>
           </div>
         </div>
         <div class="editor-grid editor-grid--2">
@@ -85,7 +85,7 @@
         <div class="editor-card__header">
           <div>
             <div class="editor-card__eyebrow">Описание</div>
-            <h2 class="editor-card__title">Краткая аннотация курса</h2>
+            <h2 class="editor-card__title">Краткая аннотация дисциплины</h2>
           </div>
         </div>
         <div class="editor-grid">
@@ -111,25 +111,25 @@
         <div class="editor-card__header">
           <div>
             <div class="editor-card__eyebrow">Доступ</div>
-            <h2 class="editor-card__title">Общий курс</h2>
+            <h2 class="editor-card__title">Общий шаблон</h2>
           </div>
         </div>
         <label class="editor-toggle">
           {{ form.is_shared }}
           <span>
             <strong>{{ form.is_shared.label }}</strong>
-            <span class="editor-help">Курс смогут использовать другие преподаватели как основу для своих материалов.</span>
+            <span class="editor-help">Дисциплину смогут использовать другие преподаватели как основу для своих материалов.</span>
           </span>
         </label>
         {% if form.is_shared.errors %}<div class="editor-errors">{{ form.is_shared.errors }}</div>{% endif %}
       </section>
 
       <div class="editor-actions">
-        <button type="submit" class="btn-primary">Сохранить курс</button>
+        <button type="submit" class="btn-primary">Сохранить дисциплину</button>
         {% if form.instance.pk %}
-          <a href="{% url 'course_detail' form.instance.pk %}" class="btn-secondary">Назад к курсу</a>
+          <a href="{% url 'course_detail' form.instance.pk %}" class="btn-secondary">Назад к конструктору</a>
         {% else %}
-          <a href="{% url 'courses_list' %}" class="btn-secondary">К списку курсов</a>
+          <a href="{% url 'courses_list' %}" class="btn-secondary">К конструктору</a>
         {% endif %}
       </div>
     </div>
@@ -140,12 +140,12 @@
         <ul class="editor-note__list">
           <li>Код дисциплины должен быть коротким и понятным.</li>
           
-          <li>Если курс не нужен другим преподавателям, общий доступ можно не включать.</li>
+          <li>Если дисциплина не нужна другим преподавателям, общий доступ можно не включать.</li>
         </ul>
       </div>
       <div class="editor-note editor-note--soft">
         <h2 class="editor-note__title">После сохранения</h2>
-        <p class="editor-help">На следующем шаге вы сможете добавить темы курса, литературу и вопросы для контроля.</p>
+        <p class="editor-help">На следующем шаге вы сможете добавить темы дисциплины, литературу и вопросы для контроля.</p>
       </div>
     </aside>
   </form>

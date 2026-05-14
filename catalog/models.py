@@ -42,7 +42,7 @@ class Course(models.Model):
 
     @property
     def display_title(self):
-        """Return the first non-empty localized title."""
+        """Возвращает первое непустое локализованное название."""
         return self.title_ru or self.title_en or self.title_kz
 
     @property

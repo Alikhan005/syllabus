@@ -119,7 +119,7 @@ class CatalogViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertNotContains(response, reverse("course_edit", args=[course.pk]))
         self.assertNotContains(response, reverse("topic_create", args=[course.pk]))
-        self.assertContains(response, "Это общий курс в режиме просмотра")
+        self.assertContains(response, "Это общий шаблон в режиме просмотра")
         self.assertContains(response, "Взять как основу")
 
     def test_shared_course_without_topics_shows_view_mode_message_for_other_teacher(self):
@@ -138,8 +138,8 @@ class CatalogViewTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Режим просмотра")
-        self.assertContains(response, "В этом общем курсе пока нет тем")
-        self.assertNotContains(response, "Добавьте первую тему курса")
+        self.assertContains(response, "В этом общем шаблоне пока нет тем")
+        self.assertNotContains(response, "Добавьте первую тему дисциплины")
 
     def test_shared_course_edit_returns_403_for_other_teacher(self):
         owner = self._create_user("catalog_teacher_edit_owner")
@@ -186,7 +186,7 @@ class CatalogViewTests(TestCase):
         response = self.client.post(reverse("course_create"), self._course_payload(code="CS101"))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Курс с таким кодом уже существует")
+        self.assertContains(response, "Дисциплина с таким кодом уже существует")
         self.assertEqual(Course.objects.filter(owner=teacher, code="CS101").count(), 1)
 
     def test_course_form_allows_same_code_for_different_owner(self):

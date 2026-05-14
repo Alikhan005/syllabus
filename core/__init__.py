@@ -1,1 +1,1 @@
-"""Core utilities and health endpoints."""
+"""Базовые утилиты и endpoints для проверки состояния."""

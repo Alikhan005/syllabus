@@ -53,7 +53,7 @@ def _reviewer_label(user) -> str:
 
 
 def _status_label(status: str) -> str:
-    """Return a human-readable status label when possible."""
+    """Возвращает человекочитаемое название статуса, если это возможно."""
     try:
         return Syllabus.Status(status).label
     except Exception:
@@ -61,7 +61,7 @@ def _status_label(status: str) -> str:
 
 
 def _collect_role_emails(role_key: str) -> list[str]:
-    """Collect active user emails by role key (e.g. dean, umu)."""
+    """Собирает email активных пользователей по роли, например dean или umu."""
     qs = User.objects.filter(is_active=True, role=role_key).exclude(email="")
     emails = list(qs.values_list("email", flat=True).distinct())
 
@@ -72,7 +72,7 @@ def _collect_role_emails(role_key: str) -> list[str]:
 
 
 def _safe_send_mail(subject: str, message: str, recipients: list[str]) -> None:
-    """Send email without breaking workflow on notification failures."""
+    """Отправляет email так, чтобы сбой уведомлений не ломал workflow."""
     if not recipients:
         return
 
@@ -92,7 +92,7 @@ def _safe_send_mail(subject: str, message: str, recipients: list[str]) -> None:
 
 
 def _notify_on_status_change(syllabus: Syllabus, new_status: str, comment: str = "") -> None:
-    """Send role-based notifications for status transitions."""
+    """Отправляет уведомления по ролям при смене статуса."""
     try:
         subject = ""
         message = ""
@@ -148,11 +148,11 @@ def _notify_on_status_change(syllabus: Syllabus, new_status: str, comment: str =
 
 def change_status(user, syllabus: Syllabus, new_status: str, comment: str = ""):
     """
-    Main status transition function.
-    1. Validates permissions.
-    2. Updates status.
-    3. Writes status/audit logs.
-    4. Sends notifications.
+    Главная функция перехода между статусами.
+    1. Проверяет права.
+    2. Обновляет статус.
+    3. Записывает status/audit логи.
+    4. Отправляет уведомления.
     """
     old_status = Syllabus.normalize_status(syllabus.status)
     new_status = Syllabus.normalize_status(str(new_status))
@@ -161,7 +161,7 @@ def change_status(user, syllabus: Syllabus, new_status: str, comment: str = ""):
     if new_status not in _ALLOWED_STATUSES:
         raise ValueError("Недопустимый целевой статус.")
 
-    # Normalize legacy status values that may still exist in DB.
+    # Нормализуем старые значения статусов, которые еще могут быть в БД.
     if syllabus.status != old_status:
         syllabus.status = old_status
 
@@ -260,8 +260,8 @@ def change_status(user, syllabus: Syllabus, new_status: str, comment: str = ""):
 
 def queue_for_ai_check(user, syllabus: Syllabus, comment: str = "") -> tuple[Syllabus, bool]:
     """
-    Put a syllabus into AI queue through the workflow layer.
-    Returns (syllabus, queued_now) where queued_now=False means it was already queued.
+    Ставит силлабус в очередь AI через workflow-слой.
+    Возвращает (syllabus, queued_now), где queued_now=False значит, что он уже был в очереди.
     """
     old_status = Syllabus.normalize_status(syllabus.status)
     comment = (comment or "").strip()
@@ -322,8 +322,8 @@ def change_status_system(
     ai_feedback: str | None = None,
 ) -> Syllabus:
     """
-    Internal status transition for background workers.
-    Bypasses role checks but keeps status/audit logs and notifications consistent.
+    Внутренний переход статуса для фоновых worker-процессов.
+    Обходит проверки ролей, но сохраняет status/audit логи и уведомления консистентными.
     """
     old_status = Syllabus.normalize_status(syllabus.status)
     new_status = Syllabus.normalize_status(str(new_status))

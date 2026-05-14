@@ -7,7 +7,7 @@ from django.core.exceptions import ImproperlyConfigured
 
 try:
     from dotenv import load_dotenv  # type: ignore
-except Exception:  # pragma: no cover - optional dependency
+except Exception:  # pragma: no cover - необязательная зависимость
     load_dotenv = None
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -18,7 +18,7 @@ RUNNING_TESTS = any(arg == "test" for arg in sys.argv[1:])
 if load_dotenv:
     for env_path in (BASE_DIR / ".env", BASE_DIR.parent / ".env"):
         if env_path.exists():
-            # Keep externally provided env vars (CI/prod secrets) higher priority.
+            # Внешние переменные окружения и секреты CI/боевой среды имеют более высокий приоритет.
             load_dotenv(env_path, override=False)
             break
 
@@ -185,7 +185,7 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 TEST_DATABASE_URL = os.getenv("DJANGO_TEST_DATABASE_URL") if RUNNING_TESTS else None
 TEST_USE_SQLITE = RUNNING_TESTS and _env_bool("DJANGO_TEST_USE_SQLITE", True)
 
-# Keep local test runs self-contained unless a dedicated test DB is configured.
+# Локальные тесты остаются самодостаточными, если отдельная тестовая БД не настроена.
 if TEST_DATABASE_URL:
     DATABASES = {"default": _database_from_url(TEST_DATABASE_URL)}
 elif TEST_USE_SQLITE:
@@ -262,7 +262,7 @@ STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 # Медиа-файлы
 MEDIA_URL = "/media/"
-# Allow production deploys to mount a persistent media directory.
+# Позволяет боевому развертыванию подключать постоянную папку media.
 MEDIA_ROOT = Path(
     os.getenv("DJANGO_MEDIA_ROOT")
     or os.getenv("MEDIA_ROOT")
@@ -315,7 +315,7 @@ EMAIL_TIMEOUT = _env_int("EMAIL_TIMEOUT", 15)
 EMAIL_VERIFICATION_TTL_MINUTES = _env_int("EMAIL_VERIFICATION_TTL_MINUTES", 15)
 EMAIL_VERIFICATION_RESEND_SECONDS = _env_int("EMAIL_VERIFICATION_RESEND_SECONDS", 60)
 
-# Security defaults: permissive in local debug, strict in production.
+# Настройки безопасности: мягче в локальной отладке, строже в боевой среде.
 SECURE_SSL_REDIRECT = _env_bool("DJANGO_SECURE_SSL_REDIRECT", not DEBUG)
 SESSION_COOKIE_SECURE = _env_bool("DJANGO_SESSION_COOKIE_SECURE", not DEBUG)
 CSRF_COOKIE_SECURE = _env_bool("DJANGO_CSRF_COOKIE_SECURE", not DEBUG)

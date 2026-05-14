@@ -49,7 +49,7 @@ def _can_view_course(user, course: Course) -> bool:
 def _get_course_for_management(user, pk: int) -> Course:
     course = get_object_or_404(Course, pk=pk)
     if not _can_manage_course(user, course):
-        raise PermissionDenied("Вы не можете редактировать этот курс.")
+        raise PermissionDenied("Вы не можете редактировать эту дисциплину.")
     return course
 
 
@@ -97,7 +97,7 @@ def course_detail(request, pk):
         pk=pk,
     )
     if not _can_view_course(request.user, course):
-        raise PermissionDenied("Доступ к этому курсу запрещен.")
+        raise PermissionDenied("Доступ к этой дисциплине запрещен.")
     topics = course.topics.order_by("order_index")
     return render(
         request,
@@ -193,7 +193,7 @@ def topic_edit(request, course_pk, pk):
 @login_required
 def shared_courses_list(request):
     if not request.user.can_view_shared_courses:
-        raise PermissionDenied("У вас нет доступа к общим шаблонам курсов.")
+        raise PermissionDenied("У вас нет доступа к общим шаблонам.")
 
     query = (request.GET.get("q") or "").strip()
     courses = Course.objects.filter(is_shared=True).select_related("owner")
@@ -223,7 +223,7 @@ def shared_courses_list(request):
 @require_POST
 def course_fork(request, pk):
     if not request.user.can_view_shared_courses:
-        raise PermissionDenied("У вас нет доступа к шаблонам курсов.")
+        raise PermissionDenied("У вас нет доступа к шаблонам.")
 
     source = get_object_or_404(Course, pk=pk, is_shared=True)
 
@@ -275,6 +275,6 @@ def course_fork(request, pk):
     source_title = source.display_title or source.code
     messages.success(
         request,
-        f'Шаблон "{source_title}" скопирован в раздел "Мои курсы". Сейчас открыта ваша личная копия.',
+        f'Шаблон "{source_title}" скопирован в конструктор. Сейчас открыта ваша личная копия.',
     )
     return redirect("course_detail", pk=new_course.pk)

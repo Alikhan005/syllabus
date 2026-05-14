@@ -103,12 +103,12 @@ def validate_syllabus_structure(syllabus) -> list[str]:
 
 def generate_syllabus_pdf(syllabus, viewer=None):
     """
-    Generate PDF or return informative 501 if WeasyPrint deps are missing.
-    We import WeasyPrint lazily to avoid command-time failures when system libs aren't installed.
+    Генерирует PDF или возвращает понятный 501, если зависимости WeasyPrint отсутствуют.
+    Импортируем WeasyPrint лениво, чтобы команды не падали при отсутствии системных библиотек.
     """
     try:
         from weasyprint import HTML  # type: ignore
-    except Exception:  # pragma: no cover - environment without system deps
+    except Exception:  # pragma: no cover - окружение без системных зависимостей
         return HttpResponse(
             "Системные зависимости WeasyPrint не установлены. "
             "Установите GTK/Pango (см. https://doc.courtbouillon.org/weasyprint/stable/first_steps.html#installation) "
