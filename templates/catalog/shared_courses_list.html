@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}Общие шаблоны{% endblock %}
 {% block content %}
 <h1 class="text-2xl font-semibold mb-4">Общие шаблоны</h1>
@@ -37,4 +38,72 @@
   {% endfor %}
   </tbody>
 </table>
+
+<section class="mt-8">
+  <div class="mb-4">
+    <h2 class="text-xl font-semibold text-slate-800">Примеры силлабусов</h2>
+    <p class="mt-1 text-sm text-slate-500">
+      Если вы создаёте силлабус впервые, скачайте пример на нужном языке и используйте его как ориентир по структуре.
+    </p>
+  </div>
+
+  <div class="grid gap-4 md:grid-cols-3">
+    <article class="card p-4 flex flex-col gap-4">
+      <div class="flex items-start justify-between gap-3">
+        <div>
+          <div class="text-xs font-bold uppercase tracking-wide text-teal-700">Русский</div>
+          <h3 class="mt-1 text-lg font-semibold text-slate-800">Пример силлабуса</h3>
+        </div>
+        <span class="inline-flex rounded-full bg-teal-50 px-2.5 py-1 text-xs font-bold text-teal-700">RU</span>
+      </div>
+      <p class="text-sm text-slate-500">Готовый DOCX-шаблон на русском языке.</p>
+      <a
+        href="{% static 'examples/syllabus-example-ru.docx' %}"
+        download="RUS Силлабус шаблон.docx"
+        class="btn-secondary mt-auto inline-flex items-center justify-center gap-2"
+      >
+        <i class="fa-regular fa-file-word"></i>
+        Скачать пример
+      </a>
+    </article>
+
+    <article class="card p-4 flex flex-col gap-4">
+      <div class="flex items-start justify-between gap-3">
+        <div>
+          <div class="text-xs font-bold uppercase tracking-wide text-teal-700">Қазақша</div>
+          <h3 class="mt-1 text-lg font-semibold text-slate-800">Силлабус үлгісі</h3>
+        </div>
+        <span class="inline-flex rounded-full bg-teal-50 px-2.5 py-1 text-xs font-bold text-teal-700">KZ</span>
+      </div>
+      <p class="text-sm text-slate-500">Қазақ тіліндегі дайын DOCX үлгісі.</p>
+      <a
+        href="{% static 'examples/syllabus-example-kz.docx' %}"
+        download="КАЗ Силлабус шаблон.docx"
+        class="btn-secondary mt-auto inline-flex items-center justify-center gap-2"
+      >
+        <i class="fa-regular fa-file-word"></i>
+        Скачать пример
+      </a>
+    </article>
+
+    <article class="card p-4 flex flex-col gap-4">
+      <div class="flex items-start justify-between gap-3">
+        <div>
+          <div class="text-xs font-bold uppercase tracking-wide text-teal-700">English</div>
+          <h3 class="mt-1 text-lg font-semibold text-slate-800">Syllabus example</h3>
+        </div>
+        <span class="inline-flex rounded-full bg-teal-50 px-2.5 py-1 text-xs font-bold text-teal-700">EN</span>
+      </div>
+      <p class="text-sm text-slate-500">Ready DOCX example in English.</p>
+      <a
+        href="{% static 'examples/syllabus-example-en.docx' %}"
+        download="ENG Силлабус шаблон.docx"
+        class="btn-secondary mt-auto inline-flex items-center justify-center gap-2"
+      >
+        <i class="fa-regular fa-file-word"></i>
+        Скачать пример
+      </a>
+    </article>
+  </div>
+</section>
 {% endblock %}

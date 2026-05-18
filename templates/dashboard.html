@@ -18,20 +18,23 @@
       Административная панель управления системой и процессом согласования.
     {% endif %}
   </p>
-  <div class="dashboard-hero__chips">
-    {% if user.can_view_courses %}
-      <span class="dashboard-chip">Конструктор: {{ my_courses_count|default:"0" }}</span>
-    {% endif %}
-    {% if user.can_view_shared_courses %}
-      <span class="dashboard-chip">Общие шаблоны: {{ shared_courses_count|default:"0" }}</span>
-    {% endif %}
-    <span class="dashboard-chip">Силлабусы: {{ syllabi_count|default:"0" }}</span>
-    {% if user.can_view_shared_courses %}
-      <span class="dashboard-chip">Общие силлабусы: {{ shared_syllabi_count|default:"0" }}</span>
-    {% endif %}
-  </div>
+  {% if user.role != "dean" and user.role != "umu" or user.can_view_courses %}
+    <div class="dashboard-hero__chips">
+      {% if user.can_view_courses %}
+        <span class="dashboard-chip">Конструктор: {{ my_courses_count|default:"0" }}</span>
+      {% endif %}
+      {% if user.can_view_shared_courses %}
+        <span class="dashboard-chip">Общие шаблоны: {{ shared_courses_count|default:"0" }}</span>
+      {% endif %}
+      <span class="dashboard-chip">Силлабусы: {{ syllabi_count|default:"0" }}</span>
+      {% if user.can_view_shared_courses %}
+        <span class="dashboard-chip">Общие силлабусы: {{ shared_syllabi_count|default:"0" }}</span>
+      {% endif %}
+    </div>
+  {% endif %}
 </div>
 
+{% if user.role != "dean" and user.role != "umu" or user.can_view_courses %}
 {% if user.can_view_courses or user.can_view_shared_courses %}
   <div class="dashboard-grid">
     {% if user.can_view_courses %}
@@ -136,6 +139,7 @@
       </div>
     {% endif %}
   </div>
+{% endif %}
 {% endif %}
 
   <div class="card p-5 approval-board dashboard-approval">

@@ -17,6 +17,7 @@ class Syllabus(models.Model):
         DRAFT = "draft", "Черновик"
         AI_CHECK = "ai_check", "На проверке ИИ"
         CORRECTION = "correction", "На доработке"
+        READY_DEAN = "ready_dean", "Готов к отправке декану"
         REVIEW_DEAN = "review_dean", "Согласование: Декан"
         REVIEW_UMU = "review_umu", "Согласование: УМУ"
         APPROVED = "approved", "Утвержден"
@@ -53,6 +54,7 @@ class Syllabus(models.Model):
     )
     semester = models.CharField("Семестр", max_length=50)
     academic_year = models.CharField("Учебный год", max_length=20)
+    school = models.CharField("Школа согласования", max_length=255, blank=True)
 
     status = models.CharField(
         "Статус",

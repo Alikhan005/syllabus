@@ -3,6 +3,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from django.urls import reverse
 
+from accounts.schools import SCHOOL_CHOICES
 from catalog.models import Course, Topic
 from syllabi.forms import SyllabusForm
 from syllabi.models import Syllabus, SyllabusTopic
@@ -43,6 +44,7 @@ class SyllabusRoleViewTests(TestCase):
                 "academic_year": "2025-2026",
                 "total_weeks": 15,
                 "main_language": "ru",
+                "school": SCHOOL_CHOICES[0][0],
             },
         )
 
@@ -78,6 +80,7 @@ class SyllabusRoleViewTests(TestCase):
                 "semester": "Fall 2025",
                 "academic_year": "2025-2026",
                 "main_language": "ru",
+                "school": SCHOOL_CHOICES[0][0],
             },
             user=teacher,
         )
@@ -101,6 +104,7 @@ class SyllabusRoleViewTests(TestCase):
                 "semester": "Fall 2025",
                 "academic_year": "2025-2026",
                 "main_language": "ru",
+                "school": SCHOOL_CHOICES[0][0],
                 "pdf_file": uploaded,
             },
         )
@@ -110,6 +114,7 @@ class SyllabusRoleViewTests(TestCase):
         self.assertIn("manual", syllabus.pdf_file.name)
         self.assertTrue(syllabus.pdf_file.name.endswith(".pdf"))
         self.assertTrue(syllabus.course.is_manual)
+        self.assertEqual(syllabus.school, SCHOOL_CHOICES[0][0])
 
     def test_manual_course_name_is_visible_only_to_author(self):
         teacher = self._create_user("teacher_private_manual_course", "teacher")
@@ -198,6 +203,7 @@ class SyllabusRoleViewTests(TestCase):
                 "academic_year": "2025-2026",
                 "total_weeks": 15,
                 "main_language": "ru",
+                "school": SCHOOL_CHOICES[0][0],
             },
         )
 
@@ -265,6 +271,7 @@ class SyllabusRoleViewTests(TestCase):
             semester="Fall 2025",
             academic_year="2025-2026",
             status=Syllabus.Status.CORRECTION,
+            school=SCHOOL_CHOICES[0][0],
         )
 
         self.client.force_login(teacher)
@@ -276,6 +283,67 @@ class SyllabusRoleViewTests(TestCase):
         self.assertEqual(response.status_code, 302)
         syllabus.refresh_from_db()
         self.assertEqual(syllabus.status, Syllabus.Status.REVIEW_DEAN)
+
+    def test_author_cannot_force_submit_without_school(self):
+        teacher = self._create_user("teacher_force_submit_without_school", "teacher")
+        course = self._create_course(teacher, code="CS405A")
+        syllabus = Syllabus.objects.create(
+            course=course,
+            creator=teacher,
+            semester="Fall 2025",
+            academic_year="2025-2026",
+            status=Syllabus.Status.CORRECTION,
+        )
+
+        self.client.force_login(teacher)
+        response = self.client.post(
+            reverse("syllabus_change_status", args=[syllabus.pk, Syllabus.Status.REVIEW_DEAN]),
+            {"comment": "Пытаюсь отправить без школы."},
+        )
+
+        self.assertEqual(response.status_code, 302)
+        syllabus.refresh_from_db()
+        self.assertEqual(syllabus.status, Syllabus.Status.CORRECTION)
+
+    def test_ai_check_page_does_not_show_school_selector(self):
+        teacher = self._create_user("teacher_school_selector", "teacher")
+        course = self._create_course(teacher, code="CS405B")
+        syllabus = Syllabus.objects.create(
+            course=course,
+            creator=teacher,
+            semester="Fall 2025",
+            academic_year="2025-2026",
+            status=Syllabus.Status.AI_CHECK,
+            school=SCHOOL_CHOICES[0][0],
+        )
+
+        self.client.force_login(teacher)
+        response = self.client.get(reverse("syllabus_detail", args=[syllabus.pk]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, "Маршрут согласования")
+        self.assertNotContains(response, "Сохранить школу")
+
+    def test_author_can_save_school_for_syllabus(self):
+        teacher = self._create_user("teacher_save_school", "teacher")
+        course = self._create_course(teacher, code="CS405C")
+        syllabus = Syllabus.objects.create(
+            course=course,
+            creator=teacher,
+            semester="Fall 2025",
+            academic_year="2025-2026",
+            status=Syllabus.Status.CORRECTION,
+        )
+
+        self.client.force_login(teacher)
+        response = self.client.post(
+            reverse("syllabus_update_school", args=[syllabus.pk]),
+            {"school": SCHOOL_CHOICES[1][0]},
+        )
+
+        self.assertEqual(response.status_code, 302)
+        syllabus.refresh_from_db()
+        self.assertEqual(syllabus.school, SCHOOL_CHOICES[1][0])
 
     def test_non_author_cannot_force_submit_from_correction(self):
         teacher = self._create_user("teacher_owner", "teacher")
@@ -666,6 +734,7 @@ class SyllabusRoleViewTests(TestCase):
                 "semester": "Fall 2025",
                 "academic_year": "2025-2026",
                 "main_language": "ru",
+                "school": SCHOOL_CHOICES[0][0],
             },
             files={"pdf_file": uploaded},
             user=teacher,
@@ -822,6 +891,9 @@ class SyllabusRoleViewTests(TestCase):
         self.assertContains(response, "Это личное название будет видно вам.")
         self.assertContains(response, "Ввести название вручную")
         self.assertContains(response, "manual-course-panel")
+        self.assertContains(response, "Школа согласования")
+        self.assertContains(response, "Школа для согласования")
+        self.assertContains(response, "После проверки ИИ документ попадёт в деканат выбранной школы.")
         self.assertContains(response, "Перетащите файл сюда")
         self.assertContains(response, "Открыть файл")
         self.assertContains(response, "Удалить файл")

@@ -86,6 +86,21 @@
       <section class="editor-card">
         <div class="editor-card__header">
           <div>
+            <div class="editor-card__eyebrow">Маршрут</div>
+            <h2 class="editor-card__title">Школа согласования</h2>
+          </div>
+        </div>
+        <div class="editor-field">
+          <label for="{{ form.school.id_for_label }}">{{ form.school.label }}</label>
+          {{ form.school }}
+          <p class="editor-help">После проверки ИИ документ попадёт в деканат выбранной школы.</p>
+          {% if form.school.errors %}<div class="editor-errors">{{ form.school.errors }}</div>{% endif %}
+        </div>
+      </section>
+
+      <section class="editor-card">
+        <div class="editor-card__header">
+          <div>
             <div class="editor-card__eyebrow">Файл</div>
             <h2 class="editor-card__title">Исходный документ</h2>
           </div>
@@ -142,6 +157,7 @@
         <ul class="editor-note__list">
           <li>Файл привяжется к выбранной дисциплине и сохранится в системе.</li>
           <li>ИИ проверит структуру и покажет замечания, если найдёт проблемы.</li>
+          <li>После проверки документ отправится в деканат выбранной школы.</li>
           <li>Если ИИ найдёт замечания, можно загрузить исправленный файл и отправить его на повторную проверку.</li>
           <li>После утверждения силлабус можно опубликовать в разделе «Общие силлабусы».</li>
         </ul>

@@ -2,7 +2,12 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
 
-from accounts.forms import PasswordResetIdentifierForm, SignupForm
+from accounts.forms import (
+    DEAN_SCHOOL_CHOICES,
+    PasswordResetIdentifierForm,
+    ProfileForm,
+    SignupForm,
+)
 
 
 User = get_user_model()
@@ -111,12 +116,131 @@ class AccountFormsTests(TestCase):
                 "role": User.Role.DEAN,
                 "faculty": "",
                 "department": "",
+                "dean_school": DEAN_SCHOOL_CHOICES[0][0],
                 "password1": "StrongPass123!",
                 "password2": "StrongPass123!",
             }
         )
 
         self.assertTrue(form.is_valid())
+
+    def test_dean_signup_requires_school_management(self):
+        form = SignupForm(
+            data={
+                "username": "dean_without_school",
+                "first_name": "Dean",
+                "last_name": "NoSchool",
+                "email": "dean_without_school@example.com",
+                "role": User.Role.DEAN,
+                "faculty": "",
+                "department": "",
+                "dean_school": "",
+                "password1": "StrongPass123!",
+                "password2": "StrongPass123!",
+            }
+        )
+
+        self.assertFalse(form.is_valid())
+        self.assertIn("dean_school", form.errors)
+
+    def test_dean_signup_saves_selected_school_in_faculty_field(self):
+        school_name = DEAN_SCHOOL_CHOICES[1][0]
+        form = SignupForm(
+            data={
+                "username": "dean_with_school",
+                "first_name": "Dean",
+                "last_name": "School",
+                "email": "dean_with_school@example.com",
+                "role": User.Role.DEAN,
+                "faculty": "Будет заменено",
+                "department": "Будет очищено",
+                "dean_school": school_name,
+                "password1": "StrongPass123!",
+                "password2": "StrongPass123!",
+            }
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
+        user = form.save()
+
+        self.assertEqual(user.faculty, school_name)
+        self.assertEqual(user.department, "")
+
+    def test_teacher_signup_does_not_require_dean_school(self):
+        form = SignupForm(
+            data={
+                "username": "teacher_without_dean_school",
+                "first_name": "Teacher",
+                "last_name": "Regular",
+                "email": "teacher_without_dean_school@example.com",
+                "role": User.Role.TEACHER,
+                "faculty": "Факультет",
+                "department": "Кафедра",
+                "dean_school": "",
+                "password1": "StrongPass123!",
+                "password2": "StrongPass123!",
+            }
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
+
+    def test_dean_profile_uses_school_management_without_department(self):
+        dean = User.objects.create_user(
+            username="profile_dean",
+            password="pass1234",
+            email="profile_dean@example.com",
+            role=User.Role.DEAN,
+            faculty=DEAN_SCHOOL_CHOICES[0][0],
+            department="Лишняя кафедра",
+        )
+
+        form = ProfileForm(instance=dean)
+
+        self.assertEqual(form.fields["faculty"].label, "Управление школы")
+        self.assertNotIn("department", form.fields)
+
+    def test_dean_profile_page_hides_department(self):
+        dean = User.objects.create_user(
+            username="profile_dean_page",
+            password="pass1234",
+            email="profile_dean_page@example.com",
+            role=User.Role.DEAN,
+            faculty=DEAN_SCHOOL_CHOICES[0][0],
+            department="Лишняя кафедра",
+        )
+        self.client.force_login(dean)
+
+        response = self.client.get(reverse("profile"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Управление школы")
+        self.assertNotContains(response, "Кафедра")
+        self.assertContains(response, "управление школы")
+
+    def test_dean_profile_save_clears_department(self):
+        dean = User.objects.create_user(
+            username="profile_dean_save",
+            password="pass1234",
+            email="profile_dean_save@example.com",
+            role=User.Role.DEAN,
+            faculty=DEAN_SCHOOL_CHOICES[0][0],
+            department="Лишняя кафедра",
+        )
+        form = ProfileForm(
+            data={
+                "first_name": "Dean",
+                "last_name": "Profile",
+                "email": dean.email,
+                "faculty": DEAN_SCHOOL_CHOICES[1][0],
+            },
+            instance=dean,
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
+        user = form.save()
+
+        self.assertEqual(user.faculty, DEAN_SCHOOL_CHOICES[1][0])
+        self.assertEqual(user.department, "")
 
 
 class LogoutSecurityTests(TestCase):

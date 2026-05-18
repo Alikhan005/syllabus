@@ -177,11 +177,14 @@ def change_status(user, syllabus: Syllabus, new_status: str, comment: str = ""):
     if new_status == Syllabus.Status.REVIEW_DEAN:
         if not (is_creator or is_admin):
             raise PermissionDenied("Только автор может отправить силлабус на согласование декану.")
+        if not (syllabus.school or "").strip():
+            raise ValueError("Выберите школу перед отправкой декану.")
 
         allowed_prev = [
             Syllabus.Status.DRAFT,
             Syllabus.Status.CORRECTION,
             Syllabus.Status.AI_CHECK,
+            Syllabus.Status.READY_DEAN,
             Syllabus.Status.REVIEW_DEAN,
         ]
         if old_status not in allowed_prev and not is_admin:

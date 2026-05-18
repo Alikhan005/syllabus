@@ -2,6 +2,7 @@ from pathlib import Path
 
 from django import forms
 from django.db.models import Q
+from accounts.schools import SCHOOL_CHOICES
 from catalog.models import Course
 from catalog.services import dedupe_courses_queryset
 from .models import Syllabus
@@ -45,6 +46,11 @@ class SyllabusForm(forms.ModelForm):
         ),
         help_text="Это личное название будет видно вам. Другим пользователям система покажет, что дисциплина указана автором вручную.",
     )
+    school = forms.ChoiceField(
+        label="Школа для согласования",
+        choices=(("", "Выберите школу"),) + SCHOOL_CHOICES,
+        widget=forms.Select(attrs={"class": "form-select"}),
+    )
 
     class Meta:
         model = Syllabus
@@ -54,6 +60,7 @@ class SyllabusForm(forms.ModelForm):
             "semester",
             "academic_year",
             "main_language",
+            "school",
             "pdf_file",
         ]
         widgets = {
@@ -67,6 +74,7 @@ class SyllabusForm(forms.ModelForm):
             "semester": "Семестр",
             "academic_year": "Учебный год",
             "main_language": "Язык силлабуса",
+            "school": "Школа для согласования",
         }
 
     def __init__(self, *args, **kwargs):
@@ -251,3 +259,23 @@ class SyllabusDetailsForm(forms.ModelForm):
             "main_literature": forms.Textarea(attrs={"rows": 4, "class": "form-control"}),
             "additional_literature": forms.Textarea(attrs={"rows": 4, "class": "form-control"}),
         }
+
+
+class SyllabusSchoolForm(forms.ModelForm):
+    school = forms.ChoiceField(
+        label="Школа для согласования",
+        choices=(("", "Выберите школу"),) + SCHOOL_CHOICES,
+        widget=forms.Select(
+            attrs={
+                "class": (
+                    "w-full rounded-lg border border-amber-200 bg-white px-3 py-2.5 "
+                    "text-sm text-slate-700 outline-none transition "
+                    "focus:border-amber-400 focus:ring-2 focus:ring-amber-100"
+                )
+            }
+        ),
+    )
+
+    class Meta:
+        model = Syllabus
+        fields = ("school",)

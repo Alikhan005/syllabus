@@ -22,7 +22,12 @@ from catalog.services import ensure_default_courses
 from workflow.models import SyllabusAuditLog, SyllabusStatusLog
 from workflow.services import change_status, queue_for_ai_check
 from .display import course_code_for_user
-from .forms import SyllabusDetailsForm, SyllabusForm, is_allowed_syllabus_file_name
+from .forms import (
+    SyllabusDetailsForm,
+    SyllabusForm,
+    SyllabusSchoolForm,
+    is_allowed_syllabus_file_name,
+)
 from .models import Syllabus, SyllabusRevision, SyllabusTopic
 from .permissions import can_view_syllabus, shared_syllabi_queryset
 from .services import generate_syllabus_pdf, validate_syllabus_structure
@@ -205,6 +210,8 @@ def _build_progress_context(status: str, correction_stage_key: str = "draft") ->
         return {"width": 10, "bar_class": "bg-slate-400", "active_step": "draft"}
     if status == Syllabus.Status.AI_CHECK:
         return {"width": 30, "bar_class": "bg-amber-500 animate-pulse", "active_step": "ai_check"}
+    if status == Syllabus.Status.READY_DEAN:
+        return {"width": 60, "bar_class": "bg-blue-500", "active_step": "dean"}
     if status in [Syllabus.Status.REVIEW_DEAN, Syllabus.Status.SUBMITTED_DEAN]:
         return {"width": 60, "bar_class": "bg-blue-500", "active_step": "dean"}
     if status == Syllabus.Status.REVIEW_UMU:
@@ -535,7 +542,11 @@ def syllabus_detail(request, pk):
     
     can_submit_dean = (
         is_creator
-        and syllabus.status in [Syllabus.Status.DRAFT, Syllabus.Status.CORRECTION]
+        and syllabus.status in [
+            Syllabus.Status.DRAFT,
+            Syllabus.Status.CORRECTION,
+            Syllabus.Status.READY_DEAN,
+        ]
         and is_teacher_like
     )
     can_approve_dean = (
@@ -599,6 +610,31 @@ def syllabus_detail(request, pk):
             **edit_panel_context,
         },
     )
+
+
+@login_required
+@teacher_like_required
+@require_POST
+def syllabus_update_school(request, pk):
+    syllabus = get_object_or_404(Syllabus.objects.select_related("creator"), pk=pk)
+    if request.user != syllabus.creator:
+        raise PermissionDenied("Только автор может выбрать школу для согласования.")
+    if syllabus.status not in [
+        Syllabus.Status.DRAFT,
+        Syllabus.Status.AI_CHECK,
+        Syllabus.Status.CORRECTION,
+        Syllabus.Status.READY_DEAN,
+    ]:
+        messages.warning(request, "Школу можно выбрать до отправки силлабуса декану.")
+        return redirect("syllabus_detail", pk=pk)
+
+    form = SyllabusSchoolForm(request.POST, instance=syllabus)
+    if form.is_valid():
+        form.save()
+        messages.success(request, "Школа для согласования сохранена.")
+    else:
+        messages.error(request, "Выберите школу из списка.")
+    return redirect("syllabus_detail", pk=pk)
 
 
 @login_required

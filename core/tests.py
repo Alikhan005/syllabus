@@ -7,6 +7,7 @@ from django.test import SimpleTestCase, TestCase
 from django.test import override_settings
 from django.urls import reverse
 
+from accounts.schools import SCHOOL_CHOICES
 from core.announcements import announcement_author_role_label
 from catalog.models import Course
 from syllabi.models import Syllabus
@@ -69,6 +70,66 @@ class DashboardEncodingTests(TestCase):
         self.assertIn("Просматривайте силлабусы на согласовании", content)
         for marker in MOJIBAKE_MARKERS:
             self.assertNotIn(marker, content)
+
+    def test_dean_dashboard_hides_teacher_shortcuts(self):
+        dean_user = User.objects.create_user(
+            username="dean_without_teacher_shortcuts",
+            password="pass1234",
+            role="dean",
+        )
+        self.client.force_login(dean_user)
+
+        response = self.client.get(reverse("dashboard"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, 'class="dashboard-chip"')
+        self.assertNotContains(response, "Используйте общие шаблоны коллег как основу")
+        self.assertNotContains(response, "Собирайте силлабусы на семестр")
+        self.assertNotContains(response, "Первые шаги")
+
+    def test_dean_navigation_hides_shared_catalog_links(self):
+        dean_user = User.objects.create_user(
+            username="dean_without_shared_nav",
+            password="pass1234",
+            role="dean",
+        )
+        self.client.force_login(dean_user)
+
+        response = self.client.get(reverse("dashboard"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, "Общие шаблоны")
+        self.assertNotContains(response, "Общие силлабусы")
+
+    def test_umu_dashboard_hides_teacher_shortcuts(self):
+        umu_user = User.objects.create_user(
+            username="umu_without_teacher_shortcuts",
+            password="pass1234",
+            role="umu",
+        )
+        self.client.force_login(umu_user)
+
+        response = self.client.get(reverse("dashboard"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, 'class="dashboard-chip"')
+        self.assertNotContains(response, "Используйте общие шаблоны коллег как основу")
+        self.assertNotContains(response, "Собирайте силлабусы на семестр")
+        self.assertNotContains(response, "Первые шаги")
+
+    def test_umu_navigation_hides_shared_catalog_links(self):
+        umu_user = User.objects.create_user(
+            username="umu_without_shared_nav",
+            password="pass1234",
+            role="umu",
+        )
+        self.client.force_login(umu_user)
+
+        response = self.client.get(reverse("dashboard"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, "Общие шаблоны")
+        self.assertNotContains(response, "Общие силлабусы")
 
     def test_html_templates_do_not_contain_mojibake_markers(self):
         templates_dir = Path(settings.BASE_DIR) / "templates"
@@ -140,6 +201,7 @@ class DashboardNotificationsTests(TestCase):
             semester="Spring 2026",
             academic_year="2025-2026",
             status=Syllabus.Status.AI_CHECK,
+            school=SCHOOL_CHOICES[0][0],
         )
         change_status(teacher, syllabus, Syllabus.Status.REVIEW_DEAN, "READY_FOR_DEAN")
 
@@ -169,6 +231,7 @@ class DashboardNotificationsTests(TestCase):
             semester="Fall 2026",
             academic_year="2026-2027",
             status=Syllabus.Status.REVIEW_DEAN,
+            school=SCHOOL_CHOICES[0][0],
         )
         change_status(reviewer, syllabus, Syllabus.Status.CORRECTION, "FIRST_NOTICE")
 
@@ -211,6 +274,7 @@ class DashboardNotificationsTests(TestCase):
             semester="Spring 2027",
             academic_year="2026-2027",
             status=Syllabus.Status.AI_CHECK,
+            school=SCHOOL_CHOICES[0][0],
         )
         change_status(teacher, syllabus, Syllabus.Status.REVIEW_DEAN, "READY_FOR_TWO_DEANS")
 

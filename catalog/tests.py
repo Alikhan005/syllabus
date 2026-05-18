@@ -287,3 +287,15 @@ class CatalogViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         courses = list(response.context["courses"])
         self.assertEqual([course.pk for course in courses], [visible_course.pk])
+
+    def test_shared_courses_page_shows_example_syllabi_downloads(self):
+        teacher = self._create_user("catalog_teacher_examples")
+        self.client.force_login(teacher)
+
+        response = self.client.get(reverse("shared_courses_list"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Примеры силлабусов")
+        self.assertContains(response, "examples/syllabus-example-ru.docx")
+        self.assertContains(response, "examples/syllabus-example-kz.docx")
+        self.assertContains(response, "examples/syllabus-example-en.docx")

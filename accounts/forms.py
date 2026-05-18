@@ -3,10 +3,20 @@ from django.contrib.auth import authenticate, get_user_model
 from django.contrib.auth.forms import AuthenticationForm, PasswordResetForm, UserCreationForm
 from django.core.exceptions import ValidationError
 
+from .schools import SCHOOL_CHOICES
+
 User = get_user_model()
+
+DEAN_SCHOOL_CHOICES = SCHOOL_CHOICES
 
 
 class SignupForm(UserCreationForm):
+    dean_school = forms.ChoiceField(
+        label="Управление школы",
+        required=False,
+        choices=(("", "Выберите школу"),) + DEAN_SCHOOL_CHOICES,
+    )
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.existing_user = None
@@ -47,6 +57,16 @@ class SignupForm(UserCreationForm):
             "role": "Выберите свою роль. При необходимости администратор сможет изменить ее позже.",
         }
 
+    def clean(self):
+        cleaned_data = super().clean()
+        role = cleaned_data.get("role")
+        dean_school = (cleaned_data.get("dean_school") or "").strip()
+
+        if role == User.Role.DEAN and not dean_school:
+            self.add_error("dean_school", "Выберите управление школы для деканата.")
+
+        return cleaned_data
+
     def clean_username(self):
         username = (self.cleaned_data.get("username") or "").strip()
         if not username:
@@ -80,6 +100,17 @@ class SignupForm(UserCreationForm):
             self.existing_user = existing
             self.instance = existing
         return email
+
+    def save(self, commit=True):
+        user = super().save(commit=False)
+
+        if self.cleaned_data.get("role") == User.Role.DEAN:
+            user.faculty = self.cleaned_data.get("dean_school", "")
+            user.department = ""
+
+        if commit:
+            user.save()
+        return user
 
 
 class LoginForm(AuthenticationForm):
@@ -159,6 +190,27 @@ class PasswordResetIdentifierForm(PasswordResetForm):
 
 
 class ProfileForm(forms.ModelForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        if getattr(self.instance, "role", "") == User.Role.DEAN:
+            self.fields["faculty"] = forms.ChoiceField(
+                label="Управление школы",
+                choices=(("", "Выберите школу"),) + DEAN_SCHOOL_CHOICES,
+                initial=self.instance.faculty,
+            )
+            self.fields.pop("department", None)
+
+    def save(self, commit=True):
+        user = super().save(commit=False)
+
+        if getattr(user, "role", "") == User.Role.DEAN:
+            user.department = ""
+
+        if commit:
+            user.save()
+        return user
+
     class Meta:
         model = User
         fields = ("first_name", "last_name", "email", "faculty", "department")

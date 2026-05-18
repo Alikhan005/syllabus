@@ -93,6 +93,7 @@ def _build_dashboard_context(request, announcement_form=None):
                 status__in=[
                     Syllabus.Status.AI_CHECK,
                     Syllabus.Status.CORRECTION,
+                    Syllabus.Status.READY_DEAN,
                     Syllabus.Status.REVIEW_DEAN,
                     Syllabus.Status.REVIEW_UMU,
                     Syllabus.Status.APPROVED,

@@ -10,6 +10,7 @@ urlpatterns = [
     path("<int:pk>/", views.syllabus_detail, name="syllabus_detail"),
     path("<int:pk>/pdf/", views.syllabus_pdf, name="syllabus_pdf"),
     path("<int:pk>/send_ai/", views.send_to_ai_check, name="send_to_ai_check"),
+    path("<int:pk>/school/", views.syllabus_update_school, name="syllabus_update_school"),
     path("<int:pk>/status/<str:new_status>/", views.syllabus_change_status, name="syllabus_change_status"),
     path("<int:pk>/upload/", views.syllabus_upload_file, name="syllabus_upload_file"),
     path("<int:pk>/share/", views.syllabus_toggle_share, name="syllabus_toggle_share"),

@@ -45,11 +45,11 @@
             {% if user.can_view_courses %}
               <a href="{% url 'courses_list' %}" class="nav-link">Конструктор</a>
             {% endif %}
-            {% if user.can_view_shared_courses %}
+            {% if user.can_view_shared_courses and user.role != "dean" and user.role != "umu" %}
               <a href="{% url 'shared_courses_list' %}" class="nav-link">Общие шаблоны</a>
             {% endif %}
             <a href="{% url 'syllabi_list' %}" class="nav-link">Силлабусы</a>
-            {% if user.can_view_shared_courses %}
+            {% if user.can_view_shared_courses and user.role != "dean" and user.role != "umu" %}
               <a href="{% url 'shared_syllabi_list' %}" class="nav-link">Общие силлабусы</a>
             {% endif %}
           </div>
